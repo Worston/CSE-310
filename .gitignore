@@ -1,0 +1,8 @@
+# Ignore build directories
+offline_*/build/
+
+# Ignore VSCode settings
+offline_*/.vscode/
+
+# Optional: Ignore root .vscode if needed
+.vscode/
