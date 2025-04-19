@@ -3,8 +3,8 @@
 
 #include <string>
 
-static unsigned int SDBMHash(const std::string str) {
-	unsigned int hash = 0;
+static unsigned long SDBMHash(const std::string str) {
+	unsigned long hash = 0;
 	unsigned int i = 0;
 	unsigned int len = str.length();
 

@@ -12,7 +12,7 @@ class ScopeTable{
     ScopeTable* parent_scope;
     int id;
     static int nextId;
-    static unsigned int (*hashfunc) (const std::string);
+    static unsigned long (*hashfunc) (const std::string);
     // might need a collisions variable for collision resolution
    
    public:
@@ -40,13 +40,12 @@ class ScopeTable{
     int getId() { return id; }
     ScopeTable* getParent() { return parent_scope; }
 
-    static void setHashFunction(unsigned int (*func) (const std::string)){
+    static void setHashFunction(unsigned long (*func) (const std::string)){
         hashfunc = func;
     }
 
     bool insert(const std::string& name, const std::string& type){
-        unsigned int hashedValue = hashfunc(name);
-        unsigned int index = hashedValue % num_buckets;
+        unsigned long index = hashfunc(name) % num_buckets;
         SymbolInfo* current = buckets[index];
         SymbolInfo* prev = nullptr;
         int position = 1;
@@ -72,7 +71,7 @@ class ScopeTable{
     }
 
     SymbolInfo* lookup(const std::string& name){
-        unsigned int index = hashfunc(name) % num_buckets;
+        unsigned long index = hashfunc(name) % num_buckets;
         SymbolInfo* current = buckets[index];
         int position = 1;
 
@@ -90,7 +89,7 @@ class ScopeTable{
     }
 
     bool remove(const std::string& name){
-        unsigned int index = hashfunc(name) % num_buckets;
+        unsigned long index = hashfunc(name) % num_buckets;
         SymbolInfo* current = buckets[index];
         SymbolInfo* prev = nullptr;
         int position = 1;
@@ -131,6 +130,6 @@ class ScopeTable{
 
 
 int ScopeTable::nextId = 1;
-unsigned int (*ScopeTable::hashfunc)(const std::string) = SDBMHash;
+unsigned long (*ScopeTable::hashfunc)(const std::string) = SDBMHash;
 
 #endif
