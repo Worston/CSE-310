@@ -4,7 +4,6 @@
 #include "SymbolInfo.hpp"
 #include "Hashfunctions.hpp"
 #include <iostream>
-#include <string>
 
 class ScopeTable{
     SymbolInfo** buckets;
@@ -12,15 +11,20 @@ class ScopeTable{
     ScopeTable* parent_scope;
     int id;
     static int nextId;
-    static unsigned long (*hashfunc) (const std::string);
+    static unsigned long (*hashfunc) (const std::string, const int);
+    static std::ostream* os;
     // might need a collisions variable for collision resolution
    
    public:
     ScopeTable(int n, ScopeTable* parent): 
         num_buckets(n), parent_scope(parent){
         id = nextId++;
-        buckets = new SymbolInfo*[num_buckets]();
-        std::cout<<"\tScopeTable# " << id << " created\n";   
+        buckets = new SymbolInfo*[num_buckets]();  
+        // std::cout << "Scopetable ki create hoise?\n";
+        if(os != nullptr) {
+            *os << "\tScopeTable# " << id << " created\n";
+            os -> flush();
+        }
     }
 
     ~ScopeTable(){
@@ -34,18 +38,26 @@ class ScopeTable{
         }
 
         delete [] buckets;
-        std::cout << "\tScopeTable# " << id << " removed" << std::endl;
+
+        if(os != nullptr) {
+            *os<< "\tScopeTable# " << id << " removed\n";
+            os -> flush();
+        }
     }
 
     int getId() { return id; }
     ScopeTable* getParent() { return parent_scope; }
 
-    static void setHashFunction(unsigned long (*func) (const std::string)){
+    static void setHashFunction(unsigned long (*func) (const std::string, const int)){
         hashfunc = func;
     }
 
+    static void setOutputStream(std::ostream* outputStream){
+        os = outputStream;
+    }
+
     bool insert(const std::string& name, const std::string& type){
-        unsigned long index = hashfunc(name) % num_buckets;
+        unsigned long index = hashfunc(name, num_buckets) % num_buckets;
         SymbolInfo* current = buckets[index];
         SymbolInfo* prev = nullptr;
         int position = 1;
@@ -66,12 +78,15 @@ class ScopeTable{
             prev -> setNext(newSymbol);
 
         // might need to delete this line afterwards    
-        std::cout<<"Inserted in ScopeTable# " << id << " at position "<<(index+1)<<", "<<position<<"\n";   
+        if(os != nullptr){
+            *os << "Inserted in ScopeTable# " << id << " at position "<<(index+1)<<", "<<position<<"\n"; 
+            os -> flush();
+        } 
         return true;
     }
 
     SymbolInfo* lookup(const std::string& name){
-        unsigned long index = hashfunc(name) % num_buckets;
+        unsigned long index = hashfunc(name, num_buckets) % num_buckets;
         SymbolInfo* current = buckets[index];
         int position = 1;
 
@@ -79,7 +94,10 @@ class ScopeTable{
             if (current -> getName() == name){
 
                 // might need to delete this line afterwards
-                std::cout<<"'"<<name<<"'"<<" found in ScopeTable# "<< id << " at position "<<(index+1)<<", "<< position<<"\n";
+                if(os != nullptr) {
+                    *os <<"'"<<name<<"'"<<" found in ScopeTable# "<< id << " at position "<<(index+1)<<", "<< position<<"\n";
+                    os -> flush();
+                }
                 return current;
             }
             current = current -> getNext();
@@ -89,7 +107,7 @@ class ScopeTable{
     }
 
     bool remove(const std::string& name){
-        unsigned long index = hashfunc(name) % num_buckets;
+        unsigned long index = hashfunc(name, num_buckets) % num_buckets;
         SymbolInfo* current = buckets[index];
         SymbolInfo* prev = nullptr;
         int position = 1;
@@ -104,7 +122,10 @@ class ScopeTable{
                 delete current;
 
                 // might need to delete this line afterwards
-                std::cout<<"Deleted "<<"'"<<name<<"'"<<" from ScopeTable# "<< id <<" at position "<<(index+1)<<", "<<position<<"\n";
+                if(os != nullptr) {
+                    *os<<"Deleted "<<"'"<<name<<"'"<<" from ScopeTable# "<< id <<" at position "<<(index+1)<<", "<<position<<"\n";
+                    os -> flush();
+                }
                 return true;
             }
             prev = current;
@@ -114,22 +135,26 @@ class ScopeTable{
         return false; //symbol not found
     }
 
-    void print(std::ostream &os){
-        os << "ScopeTable# " << id << "\n";
+    void print(){
+        if(os != nullptr) *os << "ScopeTable# " << id << "\n";
         for (size_t i = 0; i < num_buckets; i++){
-            os << "\t" << (i+1) << " --> ";
+            *os << "\t" << (i+1) << " --> ";
             SymbolInfo* current = buckets[i];
             while (current != nullptr){
-                os << "<" << current->getName() << ", " << current->getType() << "> ";
+                if(os != nullptr)
+                    *os << "<" << current->getName() << ", " << current->getType() << "> ";
                 current = current->getNext();
             }
-            os << "\n";
+            if(os != nullptr) *os << "\n";
         }
+        os->flush();
     }
 };
 
 
 int ScopeTable::nextId = 1;
-unsigned long (*ScopeTable::hashfunc)(const std::string) = SDBMHash;
+// This will be used to set the hashfunction from symbol table 
+unsigned long (*ScopeTable::hashfunc)(const std::string, const int) = SDBMHash;
+std::ostream* ScopeTable::os = nullptr;
 
 #endif
