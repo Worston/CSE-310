@@ -75,8 +75,6 @@ void processLine(const string& line, SymbolTable& st, ostream& out, int cmdCount
     istringstream ss(line);
     string cmd;
     ss >> cmd;
-    // cout<< cmd<<"\n";
-    // out<<"Print kore?\n";
 
     stringstream buffer;
 
@@ -87,8 +85,6 @@ void processLine(const string& line, SymbolTable& st, ostream& out, int cmdCount
                 // buffer << "Number of parameters mismatch for command I\n";
                 throw runtime_error("Number of parameters mismatch for command I");
             } 
-
-            // cout<<name<<baseType<<"\n";
 
             bool isComplex = (baseType == "FUNCTION" || baseType == "STRUCT" || baseType == "UNION");
             string remaining;
@@ -103,7 +99,6 @@ void processLine(const string& line, SymbolTable& st, ostream& out, int cmdCount
             string formattedType = formatType(baseType, paramStream);
             
             if (!st.insert(name, formattedType)) {
-                // cout<<name<<"\n";
                 buffer << "\t'" << name << "' already exists in the current Scopetable\n";
             }
         }
@@ -164,7 +159,6 @@ void processLine(const string& line, SymbolTable& st, ostream& out, int cmdCount
     
     string outputLine;
     while (getline(buffer, outputLine)){
-        //cout << outputLine << "\n";
         if (!outputLine.empty()) {
             out << "\t" << outputLine << "\n";
             out.flush();
@@ -200,7 +194,6 @@ int main(int argc, char const *argv[]){
         return 1;
     }
 
-    //outfile <<"Kichu prrint hoy?\n";
     SymbolTable::setOutputStream(&outfile);
     ScopeTable::setOutputStream(&outfile);
 
@@ -209,19 +202,15 @@ int main(int argc, char const *argv[]){
     int numBuckets = stoi(trim(line));
 
     SymbolTable st(numBuckets);
-    //outfile << "Symbol Table create hoise?\n";
     int cmdCount = 0;
 
     // processing commands
     while (getline(infile, line)) {
         line = trim(line);
-        // outfile << "print kore?\n";
-        // cout<<line<<"eda test\n";
         if (line.empty()) continue;
         cmdCount++;
         outfile << "Cmd " << cmdCount << ": " << line << "\n";
         processLine(line, st, outfile, cmdCount);
-        //outfile << "print kore?\n";
     }
     
     infile.close();

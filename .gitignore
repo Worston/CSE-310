@@ -6,3 +6,6 @@ offline_*/.vscode/
 
 # Optional: Ignore root .vscode if needed
 .vscode/
+
+#ignore .txt files
+offline_*/*.txt
