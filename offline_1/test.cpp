@@ -185,7 +185,7 @@ int main(int argc, char const *argv[]){
         ScopeTable::setHashFunction(jenkins_hash);
     } else if (hashfunc == "MURMUR"){
         ScopeTable::setHashFunction (murmur_hash);
-    } else if (hashfunc == "FNVLA"){
+    } else if (hashfunc == "FNV1A"){
         ScopeTable::setHashFunction(fnv1a_hash);
     }
     
