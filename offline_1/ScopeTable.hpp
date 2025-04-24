@@ -14,7 +14,6 @@ class ScopeTable{
     static int nextId;
     static unsigned long (*hashfunc) (const std::string&, const int);
     static std::ostream* os;
-    // might need a collisions variable for collision resolution
    
    public:
     ScopeTable(int n, ScopeTable* parent): 
@@ -55,6 +54,10 @@ class ScopeTable{
 
     static void setHashFunction(unsigned long (*func) (const std::string&, const int)){
         hashfunc = func;
+    }
+
+    static void setNextId(){
+        nextId = 1;
     }
 
     static void setOutputStream(std::ostream* outputStream){

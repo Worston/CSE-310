@@ -27,9 +27,9 @@ class SymbolTable{
         outputStream = os;
     }
 
-    static void setHashFunction(unsigned long (*func)(const std::string&, const int)) {
-        ScopeTable::setHashFunction(func); 
-    }
+    // static void setHashFunction(unsigned long (*func)(const std::string&, const int)) {
+    //     ScopeTable::setHashFunction(func); 
+    // }
 
     void enterScope(){
         ScopeTable* newScope = new ScopeTable(num_buckets, currentScope);

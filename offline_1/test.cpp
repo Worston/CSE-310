@@ -180,13 +180,13 @@ int main(int argc, char const *argv[]){
     }
 
     if (hashfunc == "SDBM"){
-        SymbolTable::setHashFunction(SDBMHash);
+        ScopeTable::setHashFunction(SDBMHash);
     } else if (hashfunc == "JENKINS"){
-        SymbolTable::setHashFunction(jenkins_hash);
+        ScopeTable::setHashFunction(jenkins_hash);
     } else if (hashfunc == "MURMUR"){
-        SymbolTable::setHashFunction (murmur_hash);
+        ScopeTable::setHashFunction (murmur_hash);
     } else if (hashfunc == "FNVLA"){
-        SymbolTable::setHashFunction(fnv1a_hash);
+        ScopeTable::setHashFunction(fnv1a_hash);
     }
     
     //file handling
