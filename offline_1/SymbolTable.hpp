@@ -27,17 +27,13 @@ class SymbolTable{
         outputStream = os;
     }
 
-    static void setHashFunction(unsigned long (*func)(const std::string, const int)) {
+    static void setHashFunction(unsigned long (*func)(const std::string&, const int)) {
         ScopeTable::setHashFunction(func); 
     }
 
     void enterScope(){
         ScopeTable* newScope = new ScopeTable(num_buckets, currentScope);
         currentScope = newScope;
-        // if(outputStream != nullptr) {
-        //     *outputStream << "\tScopeTable# " << currentScope->getId() << " created\n";
-        //     outputStream -> flush();
-        // }
     }
 
     void exitScope(){
@@ -76,16 +72,36 @@ class SymbolTable{
     }
 
     void printCurrentScope(){
-        currentScope->print();
+        currentScope->print("\t");
     }
-
+    
     void printAllScope(){
         ScopeTable* curr = currentScope;
-        while (curr != nullptr){
-            curr -> print();
-            *outputStream << "\t";
-            curr = curr -> getParent();
+        std::string indent = "\t";
+        while (curr != nullptr) {
+            curr->print(indent);
+            indent += "\t";
+            curr = curr->getParent();
         }
+    }
+
+    double getRatio(){
+        int count = 0;
+
+        ScopeTable* parent = currentScope -> getParent();
+        if (parent == nullptr){
+            return currentScope -> getCollisionsRato();
+        }
+
+        ScopeTable* curr = currentScope;
+        double ratio = 0;
+
+        while (curr != nullptr){
+            ratio += curr -> getCollisionsRato();
+            curr = curr -> getParent();
+            count ++;
+        }
+        return ratio / count;
     }
 };
 

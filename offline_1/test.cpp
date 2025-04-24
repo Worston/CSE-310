@@ -82,7 +82,6 @@ void processLine(const string& line, SymbolTable& st, ostream& out, int cmdCount
         if (cmd == "I"){
             string name, baseType;
             if (!(ss >> name >> baseType)){
-                // buffer << "Number of parameters mismatch for command I\n";
                 throw runtime_error("Number of parameters mismatch for command I");
             } 
 
@@ -92,54 +91,52 @@ void processLine(const string& line, SymbolTable& st, ostream& out, int cmdCount
             remaining = trim(remaining);
 
             if (!isComplex && !remaining.empty()){
-                throw runtime_error("Number of parameters mismatch for command I");
+                throw runtime_error("Number of parameters mismatch for the command I");
             }
 
             istringstream paramStream(remaining);
             string formattedType = formatType(baseType, paramStream);
             
             if (!st.insert(name, formattedType)) {
-                buffer << "\t'" << name << "' already exists in the current Scopetable\n";
+                buffer << "'" << name << "' already exists in the current ScopeTable\n";
             }
         }
 
         else if (cmd == "L"){
             string name;
             if (!(ss >> name)){
-                //buffer << "Number of parameters mismatch for command L\n";
-                throw runtime_error("Number of parameters mismatch for command L");
+                throw runtime_error("Number of parameters mismatch for the command L");
             }
             
             string extra;
             if(ss >> extra) {
-                throw runtime_error("Number of parameters mismatch for command L");
+                throw runtime_error("Number of parameters mismatch for the command L");
             }
             
             SymbolInfo* result = st.lookup(name);
-            if(!result) buffer<<"\t'"<<name<<"' not found in any of the ScopeTables\n";
+            if(!result) buffer<<"'"<<name<<"' not found in any of the ScopeTables\n";
         }
         
         else if (cmd == "D"){
             string name;
             if (!(ss >> name)){
-                throw runtime_error("Number of parameters mismatch for command D");
+                throw runtime_error("Number of parameters mismatch for the command D");
             }
             
             string extra;
             if(ss >> extra) {
-                throw runtime_error("Number of parameters mismatch for command D");
+                throw runtime_error("Number of parameters mismatch for the command D");
             }
             
             
             if(!st.remove(name)){ //handle buffer later
-                buffer << "\tNot found in current ScopeTable\n";
+                buffer << "Not found in the current ScopeTable\n";
             }
         }
 
         else if (cmd == "P"){
             char mode;
             if (!(ss >> mode) || (mode != 'A' && mode != 'C')){
-                // buffer << "Invalid print mode\n";
                 throw runtime_error("Invalid print mode.");
             }
             if(mode == 'C') st.printCurrentScope();
@@ -151,10 +148,10 @@ void processLine(const string& line, SymbolTable& st, ostream& out, int cmdCount
         else if (cmd == "Q") {
             st.~SymbolTable();
             exit(0);
-        } // we need to call the destructor of the symbol table here
+        } 
         else throw runtime_error("Invalid command");
     } catch(const exception& e){
-        buffer << "\t" << e.what() << "\n";
+        buffer << e.what() << "\n";
     }
     
     string outputLine;
@@ -177,13 +174,20 @@ int main(int argc, char const *argv[]){
     string hashfunc;
     if (argc >= 4){
         hashfunc = trim(argv[3]);
-        if (hashfunc == "" || hashfunc == "SDBM"){
+        if (hashfunc == ""){
             hashfunc = "SDBM";
         }
-        // implement else logic here.
     }
 
-    SymbolTable::setHashFunction(SDBMHash); 
+    if (hashfunc == "SDBM"){
+        SymbolTable::setHashFunction(SDBMHash);
+    } else if (hashfunc == "JENKINS"){
+        SymbolTable::setHashFunction(jenkins_hash);
+    } else if (hashfunc == "MURMUR"){
+        SymbolTable::setHashFunction (murmur_hash);
+    } else if (hashfunc == "FNVLA"){
+        SymbolTable::setHashFunction(fnv1a_hash);
+    }
     
     //file handling
     ifstream infile(argv[1]);
@@ -211,8 +215,9 @@ int main(int argc, char const *argv[]){
         cmdCount++;
         outfile << "Cmd " << cmdCount << ": " << line << "\n";
         processLine(line, st, outfile, cmdCount);
+        outfile.flush();
     }
-    
+
     infile.close();
     outfile.close();
     return 0;
