@@ -9,3 +9,5 @@ offline_*/.vscode/
 
 #ignore .txt files
 offline_*/*.txt
+
+offline_*/inputs
