@@ -161,17 +161,18 @@ RTHIRD   	      "]"
 COMMA             ","
 SEMICOLON         ";"
 DIGIT             [0-9]+
-FLOATNUM          {DIGIT}*\.[0-9]+
+FLOATNUM          {DIGIT}*\.{DIGIT}+
 INTNUM            {DIGIT}+
-CONSTFLOAT        ({DIGIT}+(\.{DIGIT}+)?(E|e)[+-]?{DIGIT}+)|({DIGIT}*(\.{DIGIT}+))|({DIGIT}+\.)
+CONSTFLOAT        ({DIGIT}+(\.{DIGIT}+)?(E|e)[+-]?{DIGIT}+)|({FLOATNUM})|({DIGIT}+\.)
 CHAR              ([^'"\\\n]|\\[ntafrbv0\\'"]) 
 CONSTCHAR         \'{CHAR}\'
 MULTICHAR         \'{CHAR}({CHAR}+)\'[\n]?
 UNFINISHEDCHAR    \'([^'\\\n]|\\[\'\"\\ntafrbv0])*[\n]|\'
 STRINGBODY        ([^'"\\\n]|\\[ntafrbv0\\'"])*
 UNDFSCAPE         (\\[^ntafrbv0\\'"])
-TOOMANYDECIMAL    ({DIGIT}*\.){2,}{DIGIT}*[\n]?
-ILLFORMEDNUM      {DIGIT}+(\.{DIGIT}+)?(E|e)[+-]?{DIGIT}*\.{DIGIT}+[\n]?
+MANYDECIMAL		  ({DIGIT}*\.){2,}{DIGIT}*
+TOOMANYDECIMAL    {MANYDECIMAL}[\n]?
+ILLFORMEDNUM      (({MANYDECIMAL}(E|e)[+-]?({DIGIT}*|{FLOATNUM}|{MANYDECIMAL}))|({DIGIT}+(\.{DIGIT}+)?(E|e)[+-]?({FLOATNUM}|{TOOMANYDECIMAL})))[\n]?
 EMPTYCHARACTER    \'\'[\n]?
 UNRECCONSTCHAR    \'{UNDFSCAPE}\'[\n]?
 INVALIDSUFFPREF   ({INTNUM}+|{FLOATNUM}){ID} 
@@ -433,7 +434,7 @@ INVALIDSUFFPREF   ({INTNUM}+|{FLOATNUM}){ID}
 
 <SINGLECMNT>{
     \\\n[ \t]* { 
-                cmnt_str += /*"\\\n"*/ yytext;  // Preserve backslash and newline
+                cmnt_str += yytext;  // Preserve backslash and newline
 				cmnt_lineno++;
             }
 
@@ -518,3 +519,4 @@ int main(int argc, char *argv[]){
 	log_file.close();
 	return 0;
 }
+
