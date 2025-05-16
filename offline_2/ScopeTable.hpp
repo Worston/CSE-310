@@ -136,11 +136,7 @@ public:
                
                 *os << indent << (i) << " --> ";
                 while (current != nullptr) {
-                    std::string name = current->getName();
-                    // if (current->getType() == "CONST_CHAR"){
-                    //     name = "'" + name + "'";
-                    // }
-                    *os << "< " << name << " : " << current->getType() << " >";
+                    *os << "< " << current->getName() << " : " << current->getType() << " >";
                     current = current->getNext();
                 }
                 *os << "\n";
