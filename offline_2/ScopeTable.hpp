@@ -61,7 +61,7 @@ public:
         unsigned int index = hashfunc(name.c_str()) % num_buckets;
         SymbolInfo* current = buckets[index];
         SymbolInfo* prev = nullptr;
-        int position = 1;
+        int position = 0;
 
         if (current != nullptr) {
             collisions++;
@@ -72,7 +72,7 @@ public:
                 if (os != nullptr) {
                     *os << "< "<<name << " : " << current->getType() 
                         << " > already exists in ScopeTable# " << id 
-                        << " at position " << (index + 1) << ", " << position << "\n\n";
+                        << " at position " << (index) << ", " << position << "\n\n";
                 }
                 return false; // Symbol already exists
             }
@@ -129,7 +129,7 @@ public:
 
     void print(const std::string& indent = "") {
         if (os != nullptr) {
-            *os << indent << "ScopeTable# " << id << "\n";
+            *os << indent << "ScopeTable # " << id << "\n";
             for (size_t i = 0; i < num_buckets; i++) {
                 SymbolInfo* current = buckets[i];
                 if (current == nullptr) continue;
@@ -137,12 +137,10 @@ public:
                 *os << indent << (i) << " --> ";
                 while (current != nullptr) {
                     std::string name = current->getName();
-                    if (current->getType() == "CONST_CHAR"){
-                        name = "'" + name + "'";
-                        // char char_value = name.empty() ? '\0' : name[0];
-                        // name = "'" + escape_char_display(char_value) + "'";
-                    }
-                    *os << "< " << name << " : " << current->getType() << " > ";
+                    // if (current->getType() == "CONST_CHAR"){
+                    //     name = "'" + name + "'";
+                    // }
+                    *os << "< " << name << " : " << current->getType() << " >";
                     current = current->getNext();
                 }
                 *os << "\n";
