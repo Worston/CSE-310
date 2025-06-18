@@ -11,3 +11,8 @@ offline_*/.vscode/
 offline_*/*.txt
 
 offline_*/inputs
+offline_*/input
+offline_*/output
+offline_*/.antlr
+offline_*/antlr_venv
+offline_*/sampleio_abs
