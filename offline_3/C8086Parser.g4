@@ -44,16 +44,31 @@ import java.io.IOException;
         String[] vars = declarationList.split(",");
         for (String var : vars) {
             var = var.trim();
-            if (var.contains("[")) {
-                // Handle array declaration
-                String name = var.substring(0, var.indexOf("["));
-                SymbolInfo symbol = new SymbolInfo(name.trim(), "ID");
-                symbol.setDataType(type);
-                symbol.setArray(true);
-                symbolTable.insert(symbol);
+            if (var.contains("[") && var.contains("]")) {
+                String[] parts = var.split("\\[");
+                String arrayName = parts[0].trim();
+                String sizePart = parts[1].replace("]", "").trim();
+                
+                int arraySize = sizePart.isEmpty() ? -1 : parseArraySize(sizePart);
+                symbolTable.insertArray(arrayName, type, arraySize);
             } else {
-                symbolTable.insertVariable(var,type);
+                symbolTable.insertVariable(var, type);
             }
+        }
+    }
+
+    private int parseArraySize(String sizeStr) {
+        if (sizeStr.isEmpty()) {
+            return -1; // Unspecified size
+        }
+        
+        try {
+            return Integer.parseInt(sizeStr);
+        } catch (NumberFormatException e) {
+            // Size is a variable/expression like 'n' or 'MAX_SIZE'
+            // For semantic analysis, we might want to look it up
+            // For now, return -1 to indicate dynamic/unknown size
+            return -1;
         }
     }
 }
@@ -70,8 +85,8 @@ start
         }
 
         writeIntoParserLogFile(
-            "Total lines: " + $program.stop.getLine() + "\n"
-            + "Total errors: " + Main.syntaxErrorCount + "\n"
+            "Total number of lines: " + $program.stop.getLine() + "\n"
+            + "Total number of errors: " + Main.syntaxErrorCount 
         );
       }
     ;
@@ -136,7 +151,26 @@ unit
 
 func_declaration
     returns [String func_dec_name]
-    : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON
+    : t=type_specifier ID LPAREN 
+      {
+          if (symbolTable != null) {
+            symbolTable.clearPendingParameters();
+          }
+      }
+      pl=parameter_list RPAREN sm=SEMICOLON
+      {
+          $func_dec_name=$t.name_line +" "+ $ID.text + "(" + $pl.name_list + ");";
+          writeIntoParserLogFile(
+              "Line " + $sm.getLine() + ": func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON\n"
+          );
+          writeIntoParserLogFile($func_dec_name + "\n");
+
+          if (symbolTable != null) {
+              List<SymbolInfo> params = symbolTable.getPendingParameters();
+              symbolTable.insertFunction($ID.text, $t.name_line, params);
+              symbolTable.clearPendingParameters();
+          }
+      }
     | t=type_specifier ID LPAREN RPAREN sm=SEMICOLON
       {
         $func_dec_name=$t.name_line +" "+ $ID.text + "();";
@@ -155,14 +189,18 @@ func_declaration
 
 func_definition
     returns [String func_def_name]
-    : t=type_specifier ID LPAREN pl=parameter_list RPAREN 
+    : t=type_specifier ID LPAREN
+      {
+        if (symbolTable != null) {
+          symbolTable.clearPendingParameters();
+        }
+      }
+      pl=parameter_list RPAREN 
       { 
         // will need signature and other checking
         if (symbolTable != null) {
-          SymbolInfo func = new SymbolInfo($ID.text, "ID");
-          func.setDataType($t.name_line);
-          func.setFunction(true);
-          symbolTable.insert(func);
+          List<SymbolInfo> params = symbolTable.getPendingParameters();
+          symbolTable.insertFunction($ID.text, $t.name_line, params);
         }
       } 
       cs=compound_statement
@@ -175,7 +213,10 @@ func_definition
               $func_def_name + "\n"
           );
 
-          symbolTable.lookup($ID.text).setDefined(true);
+          SymbolInfo func = symbolTable.lookup($ID.text);
+          if (func != null) {
+            func.setDefined(true);
+          }
         }
     | t=type_specifier ID LPAREN RPAREN
       {
@@ -194,7 +235,10 @@ func_definition
             $func_def_name + "\n"
         );
 
-        symbolTable.lookup($ID.text).setDefined(true);
+        SymbolInfo func = symbolTable.lookup($ID.text);
+        if (func != null) {
+          func.setDefined(true);
+        }
       }
     ;
 
@@ -213,7 +257,6 @@ parameter_list
         if (symbolTable != null) {
             SymbolInfo param = new SymbolInfo($ID.text, "ID");
             param.setDataType($t.name_line);
-            //symbolTable.insert(param);
             symbolTable.addPendingParameter(param); 
         }
       }  
@@ -231,7 +274,6 @@ parameter_list
         if (symbolTable != null) {
             SymbolInfo param = new SymbolInfo($ID.text, "ID");
             param.setDataType($t.name_line);
-            //symbolTable.insert(param);
             symbolTable.addPendingParameter(param); 
         }
       }  
@@ -261,7 +303,27 @@ compound_statement
           symbolTable.exitScope();
         }
       }
-    | LCURL RCURL
+    | LCURL
+      {
+        if (symbolTable != null) {
+            symbolTable.enterScope();
+            symbolTable.insertPendingParameters();
+        }
+      } 
+      RCURL
+      {
+        $cs_stmt_line = "{}";
+        writeIntoParserLogFile(
+            "Line " + $RCURL.getLine() + ": compound_statement : LCURL RCURL\n" 
+        );
+        writeIntoParserLogFile(
+            $cs_stmt_line + "\n"
+        );
+
+        if (symbolTable != null) {
+          symbolTable.exitScope();
+        }
+      }
     ;
 
 var_declaration
@@ -346,7 +408,17 @@ declaration_list
             $name_list + "\n"
         );
       }
-    | declaration_list COMMA ID LTHIRD CONST_INT RTHIRD
+    | dl=declaration_list COMMA ID LTHIRD CONST_INT RTHIRD
+      {
+        $name_list = $dl.name_list + $COMMA.text + $ID.text + "[" + $CONST_INT.text + "]";
+        writeIntoParserLogFile(
+            "Line " + $RTHIRD.line +": declaration_list : declaration_list COMMA ID LTHIRD CONST_INT RTHIRD\n"
+        );
+
+        writeIntoParserLogFile(
+            $name_list + "\n"
+        );
+      }
     | ID
       {
         $name_list = $ID.text;
@@ -359,6 +431,16 @@ declaration_list
         );
       }
     | ID LTHIRD CONST_INT RTHIRD
+      {
+        $name_list = $ID.text + "[" + $CONST_INT.text + "]";
+        writeIntoParserLogFile(
+            "Line " + $ID.line +": declaration_list : ID LTHIRD CONST_INT RTHIRD\n"
+        );
+
+        writeIntoParserLogFile(
+            $name_list + "\n"
+        );
+      }
     ;
 
 statements
@@ -387,7 +469,16 @@ statements
 
 statement
     returns [String line]
-    : var_declaration
+    : vd=var_declaration
+      {
+        $line = $vd.vardec_list;
+        writeIntoParserLogFile(
+            "Line " + $vd.stop.getLine() + ": statement : var_declaration\n"
+        );
+        writeIntoParserLogFile(
+            $line + "\n"
+        );
+      }
     | exp_st=expression_statement
       {
         $line = $exp_st.exp_stmt;
@@ -398,11 +489,66 @@ statement
             $line + "\n"
         );
       }
-    | compound_statement
-    | FOR LPAREN expression_statement expression_statement expression RPAREN statement
-    | IF LPAREN expression RPAREN statement
-    | IF LPAREN expression RPAREN statement ELSE statement
-    | WHILE LPAREN expression RPAREN statement
+    | cs=compound_statement
+      {
+        $line = $cs.cs_stmt_line;
+        writeIntoParserLogFile(
+            "Line " + $cs.stop.getLine() + ": statement : compound_statement\n"
+        );
+        writeIntoParserLogFile(
+            $line + "\n"
+        );
+      }
+    | FOR LPAREN exp_st1=expression_statement exp_st2=expression_statement exp=expression RPAREN st=statement
+      {
+        $line = "for(" + $exp_st1.exp_stmt + $exp_st2.exp_stmt + $exp.exp_line + ")" + $st.line;
+        writeIntoParserLogFile(
+            "Line " + $st.stop.getLine() + ": statement : FOR LPAREN expression_statement expression_statement expression RPAREN statement\n"
+        );
+        writeIntoParserLogFile(
+            $line + "\n"
+        );
+      }
+    | IF LPAREN exp=expression RPAREN st=statement
+      {
+        $line = "if" +"("+ $exp.exp_line +")"+ $st.line;
+        writeIntoParserLogFile(
+            "Line " + $st.stop.getLine() + ": statement : IF LPAREN expression RPAREN statement\n"
+        );
+        writeIntoParserLogFile(
+            $line + "\n"
+        );
+      }
+    | IF LPAREN exp=expression RPAREN st1=statement ELSE st2=statement
+      {
+        $line = "if" +"("+ $exp.exp_line +")"+ $st1.line + "else " + $st2.line;
+        writeIntoParserLogFile(
+            "Line " + $st2.stop.getLine() + ": statement : IF LPAREN expression RPAREN statement ELSE statement\n"
+        );
+        writeIntoParserLogFile(
+            $line + "\n"
+        );
+      }
+    | WHILE LPAREN exp=expression RPAREN st=statement
+      {
+        $line = "while" +"("+ $exp.exp_line +")"+ $st.line;
+        writeIntoParserLogFile(
+            "Line " + $st.stop.getLine() + ": statement : WHILE LPAREN expression RPAREN statement\n"
+        );
+        writeIntoParserLogFile(
+            $line + "\n"
+        );
+      }
+    | PRINTF LPAREN ID RPAREN sm=SEMICOLON  
+      {
+        $line = "printf" +"("+ $ID.text +")"+ $sm.text;
+        writeIntoParserLogFile(
+            "Line " + $sm.getLine() + ": statement : PRINTLN LPAREN ID RPAREN SEMICOLON\n"
+        );
+        writeIntoParserLogFile(
+            $line + "\n"
+        );
+      }
     | PRINTLN LPAREN ID RPAREN SEMICOLON
     | RETURN exp=expression sm=SEMICOLON
       {
@@ -418,7 +564,16 @@ statement
 
 expression_statement
     returns [String exp_stmt]
-    : SEMICOLON
+    : sm=SEMICOLON
+      {
+        $exp_stmt = $sm.text;
+        writeIntoParserLogFile(
+          "Line " + $sm.getLine() + ": expression_statement : SEMICOLON\n"
+        );
+        writeIntoParserLogFile(
+            $exp_stmt + "\n"
+        );
+      }
     | ex=expression sm=SEMICOLON
       {
         $exp_stmt = $ex.exp_line+";";
@@ -443,7 +598,16 @@ variable
             $var + "\n"
         );
       }
-    | ID LTHIRD expression RTHIRD
+    | ID LTHIRD ex=expression RTHIRD
+      {
+        $var = $ID.text +"["+ $ex.exp_line + "]";
+        writeIntoParserLogFile(
+            "Line " + $RTHIRD.getLine() + ": variable : ID LTHIRD expression RTHIRD\n"
+        );
+        writeIntoParserLogFile(
+            $var + "\n"
+        );
+      }
     ;
 
 expression
@@ -482,7 +646,16 @@ logic_expression
             $logi_line + "\n"
         );
       }
-    | rel_expression LOGICOP rel_expression
+    | re1=rel_expression LOGICOP re2=rel_expression
+      {
+        $logi_line = $re1.re_line + $LOGICOP.text + $re2.re_line;
+        writeIntoParserLogFile(
+            "Line " + $re2.stop.getLine()+ ": logic_expression : rel_expression LOGICOP rel_expression\n"
+        );
+        writeIntoParserLogFile(
+            $logi_line + "\n"
+        );
+      }
     ;
 
 rel_expression
@@ -497,7 +670,16 @@ rel_expression
             $re_line + "\n"
         );
       }
-    | simple_expression RELOP simple_expression
+    | se1=simple_expression RELOP se2=simple_expression
+      {
+        $re_line = $se1.se_line + $RELOP.text + $se2.se_line;
+        writeIntoParserLogFile(
+            "Line " + $se2.stop.getLine()+ ": rel_expression : simple_expression RELOP simple_expression\n"
+        );
+        writeIntoParserLogFile(
+            $re_line + "\n"
+        );
+      }
     ;
 
 simple_expression
@@ -536,13 +718,40 @@ term
             $term_line + "\n"
         );
       }
-    | term MULOP unary_expression
+    | t=term MULOP ue=unary_expression
+      {
+        $term_line = $t.term_line + $MULOP.text + $ue.un_ex_line;
+        writeIntoParserLogFile(
+            "Line " + $ue.stop.getLine()+ ": term : term MULOP unary_expression\n"
+        );
+        writeIntoParserLogFile(
+            $term_line + "\n"
+        );
+      }
     ;
 
 unary_expression
     returns [String un_ex_line]
-    : ADDOP unary_expression
-    | NOT unary_expression
+    : ADDOP un=unary_expression
+      {
+        $un_ex_line = $ADDOP.text + $un.un_ex_line;
+        writeIntoParserLogFile(
+            "Line " + $un.stop.getLine()+ ": unary_expression : ADDOP unary_expression\n"
+        );
+        writeIntoParserLogFile(
+            $un_ex_line + "\n"
+        );
+      }
+    | NOT un=unary_expression
+      {
+        $un_ex_line = $NOT.text + $un.un_ex_line;
+        writeIntoParserLogFile(
+            "Line " + $un.stop.getLine()+ ": unary_expression : NOT unary_expression\n"
+        );
+        writeIntoParserLogFile(
+            $un_ex_line + "\n"
+        );
+      }
     | f=factor
       { 
         $un_ex_line = $f.ft_line;
@@ -567,30 +776,103 @@ factor
             $ft_line + "\n"
         );
       }  
-    | ID LPAREN argument_list RPAREN
-    | LPAREN expression RPAREN
-    | ci=CONST_INT
+    | ID LPAREN argl=argument_list RPAREN
       {
-        $ft_line = $ci.text;
-
+        $ft_line = $ID.text +"("+ $argl.arg_list +")";
         writeIntoParserLogFile(
-            "Line " + $ci.text + ": factor : CONST_INT\n"
+            "Line " + $RPAREN.getLine()+ ": factor : ID LPAREN argument_list RPAREN\n"
         );
         writeIntoParserLogFile(
             $ft_line + "\n"
         );
       }
-    | CONST_FLOAT
-    | variable INCOP
-    | variable DECOP
+    | LPAREN ex=expression RPAREN
+      {
+        $ft_line = "(" + $ex.exp_line + ")" ;
+        writeIntoParserLogFile(
+            "Line " + $RPAREN.getLine()+ ": factor : LPAREN expression RPAREN\n"
+        );
+        writeIntoParserLogFile(
+            $ft_line + "\n"
+        );
+      }
+    | ci=CONST_INT
+      {
+        $ft_line = $ci.text;
+        writeIntoParserLogFile(
+            "Line " + $ci.getLine() + ": factor : CONST_INT\n"
+        );
+        writeIntoParserLogFile(
+            $ft_line + "\n"
+        );
+      }
+    | cf=CONST_FLOAT
+      {
+        $ft_line = $cf.text;
+        writeIntoParserLogFile(
+            "Line " + $cf.getLine() + ": factor : CONST_FLOAT\n"
+        );
+        writeIntoParserLogFile(
+            $ft_line + "\n"
+        );
+      }
+    | v=variable INCOP
+      {
+        $ft_line = $v.var + $INCOP.text;
+        writeIntoParserLogFile(
+            "Line " + $v.stop.getLine()+ ": factor : variable INCOP\n"
+        );
+        writeIntoParserLogFile(
+            $ft_line + "\n"
+        );
+      }
+    | v=variable DECOP
+      {
+        $ft_line = $v.var + $DECOP.text;
+        writeIntoParserLogFile(
+            "Line " + $v.stop.getLine()+ ": factor : variable DECOP\n"
+        );
+        writeIntoParserLogFile(
+            $ft_line + "\n"
+        );
+      }
     ;
 
 argument_list
-    : arguments
+    returns [String arg_list]
+    : args=arguments
+      {
+        $arg_list = $args.arg_line;  
+        writeIntoParserLogFile(
+            "Line " + $args.stop.getLine() + ": argument_list : arguments\n"
+        );
+        writeIntoParserLogFile(
+            $arg_list + "\n"
+        );
+      }
     | /* empty */
     ;
 
 arguments
-    : arguments COMMA logic_expression
-    | logic_expression
+    returns [String arg_line]
+    : args=arguments COMMA le=logic_expression
+      {
+        $arg_line = $args.arg_line +","+ $le.logi_line;
+        writeIntoParserLogFile(
+            "Line " + $COMMA.getLine() + ": arguments : arguments COMMA logic_expression\n"
+        );
+        writeIntoParserLogFile(
+            $arg_line + "\n"
+        );
+      }
+    | le=logic_expression
+      {
+        $arg_line = $le.logi_line;
+        writeIntoParserLogFile(
+            "Line " + $le.stop.getLine() + ": arguments : logic_expression\n"
+        );
+        writeIntoParserLogFile(
+            $arg_line + "\n"
+        );
+      }
     ;

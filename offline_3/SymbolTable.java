@@ -97,6 +97,14 @@ public class SymbolTable {
         }
         pendingParameters.clear();
     }
+
+    public void clearPendingParameters() {
+        pendingParameters.clear();
+    }
+
+    public List<SymbolInfo> getPendingParameters() {
+        return new ArrayList<>(pendingParameters);
+    }
     
     // Convenience method to insert function symbols
     public boolean insertFunction(String name, String returnType, List<SymbolInfo> parameters) {
@@ -112,9 +120,17 @@ public class SymbolTable {
     
     // Convenience method to insert array symbols
     public boolean insertArray(String name, String dataType, int arraySize) {
-        SymbolInfo array = new SymbolInfo(name, "ID", arraySize);
-        array.setDataType(dataType);
-        return insert(array);
+        SymbolInfo symbol = new SymbolInfo(name, "ID");
+        symbol.setDataType(dataType);
+        symbol.setArray(true);
+        if (arraySize > 0) {
+            symbol.setArraySize(arraySize);
+        }
+        return insert(symbol);
+    }
+
+    public boolean insertArray(String name, String dataType) {
+        return insertArray(name, dataType, -1); // -1 indicates unspecified size
     }
     
     // Convenience method to insert variable symbols
