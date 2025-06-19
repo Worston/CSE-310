@@ -52,11 +52,11 @@ public class ScopeTable {
 
         while (current != null) {
             if (current.getName().equals(name)) {
-                if (outputStream != null) {
-                    outputStream.printf(
-                        "\t'%s' already exists in the current scope%n", name
-                    );
-                }
+                // if (outputStream != null) {
+                //     outputStream.printf(
+                //         "\t'%s' already exists in the current scope%n", name
+                //     );
+                // }
                 return false;
             }
             prev = current;
