@@ -38,6 +38,100 @@ import java.io.IOException;
             System.err.println("Error file write error: " + e.getMessage());
         }
     }
+
+    //added to test
+    String determineArithmeticType(String type1, String type2) {
+        if (type1.equals("error") || type2.equals("error")) {
+            return "error";
+        }
+        if (type1.equals("float") || type2.equals("float")) {
+            return "float"; // If any operand is float, result is float
+        }
+        if (type1.equals("int") && type2.equals("int")) {
+            return "int";
+        }
+        return "unknown";
+    }
+    
+    // Get function return type
+    String getFunctionReturnType(String functionName, int lineNumber) {
+        if (symbolTable == null) return "unknown";
+        
+        SymbolInfo func = symbolTable.lookup(functionName);
+        if (func == null) {
+            String errorMsg = "Error at line " + lineNumber + ": Undeclared function '" + functionName + "'\n";
+            writeIntoParserLogFile(errorMsg);
+            writeIntoErrorFile(errorMsg);
+            Main.syntaxErrorCount++;
+            return "error";
+        } else if (!func.isFunction()) {
+            String errorMsg = "Error at line " + lineNumber + ": '" + functionName + "' is not a function\n";
+            writeIntoParserLogFile(errorMsg);
+            writeIntoErrorFile(errorMsg);
+            Main.syntaxErrorCount++;
+            return "error";
+        }
+        
+        return func.getDataType();
+    }
+    
+    // Check if a variable is declared
+    boolean isVariableDeclared(String varName) {
+        if (symbolTable == null) return false;
+        return symbolTable.isDeclared(varName);
+    }
+    
+    // Get variable type safely
+    String getVariableType(String varName) {
+        if (symbolTable == null) return "unknown";
+        
+        SymbolInfo symbol = symbolTable.lookup(varName);
+        if (symbol != null) {
+            return symbol.getDataType();
+        }
+        return "error"; // Variable not found
+    }
+
+    void checkAssignmentCompatibility(String leftType, String rightType, int lineNumber, String leftVar, String rightExpr) {
+        if (leftType.equals("error") || rightType.equals("error") || 
+            leftType.equals("unknown") || rightType.equals("unknown")) {
+            return;
+        }
+        
+        if (leftType.equals("void") || rightType.equals("void")) {
+            String errorMsg = "Error at line " + lineNumber + ": Void cannot be used in assignment\n";
+            writeIntoParserLogFile(errorMsg);
+            writeIntoErrorFile(errorMsg);
+            Main.syntaxErrorCount++;
+            return;
+        }
+        
+        if (isAssignmentCompatible(leftType, rightType)) {
+            return;
+        } else {
+            String errorMsg = "Error at line " + lineNumber + ": Type Mismatch\n";
+            writeIntoParserLogFile(errorMsg);
+            writeIntoErrorFile(errorMsg);
+            Main.syntaxErrorCount++;
+        }
+    }
+    
+    boolean isAssignmentCompatible(String leftType, String rightType) {
+        if (leftType.equals(rightType)) {
+            return true;
+        }
+        
+        if (leftType.equals("float") && rightType.equals("int")) {
+            return true; 
+        }
+        
+        // float can be assigned to int (narrowing conversion - allowed but with warning in some compilers)
+        // Uncomment if you want to allow this:
+        // if (leftType.equals("int") && rightType.equals("float")) {
+        //     return true;
+        // }
+        return false;
+    }
 }
 
 start
@@ -588,13 +682,39 @@ expression_statement
     ;
 
 variable
-    returns [String var]
+    returns [String var, String var_type]
     : ID
       {
         $var = $ID.text;
+
         writeIntoParserLogFile(
             "Line " + $ID.getLine() + ": variable : ID\n"
         );
+
+        SymbolInfo symbol=null;
+        if (symbolTable != null) {
+            symbol = symbolTable.lookup($ID.text);
+            if (symbol == null) {
+                // Variable not declared
+                String errorMsg = "Error at line " + $ID.line + ": Undeclared variable " + $ID.text + "\n";
+                writeIntoParserLogFile(errorMsg);
+                writeIntoErrorFile(errorMsg);
+                Main.syntaxErrorCount++;
+                $var_type = "error";
+            } else {
+                $var_type = symbol.getDataType();
+            }
+        } else {
+            $var_type = "unknown";
+        }
+
+        if(symbol != null && symbol.isArray()){
+            String errorMsg = "Error at line " + $ID.line + ": Type mismatch, " + $ID.text + " is an array\n"; 
+            writeIntoParserLogFile(errorMsg);
+            writeIntoErrorFile(errorMsg);
+            Main.syntaxErrorCount++; 
+        }
+
         writeIntoParserLogFile(
             $var + "\n"
         );
@@ -602,9 +722,41 @@ variable
     | ID LTHIRD ex=expression RTHIRD
       {
         $var = $ID.text +"["+ $ex.exp_line + "]";
+
         writeIntoParserLogFile(
             "Line " + $RTHIRD.getLine() + ": variable : ID LTHIRD expression RTHIRD\n"
         );
+
+        if (symbolTable != null) {
+            SymbolInfo arraySymbol = symbolTable.lookup($ID.text);
+            if (arraySymbol == null) {
+                // Array not declared
+                String errorMsg = "Error at line " + $ID.line + ": Undeclared variable '" + $ID.text + "'";
+                writeIntoParserLogFile(errorMsg);
+                writeIntoErrorFile(errorMsg);
+                Main.syntaxErrorCount++;
+                $var_type = "error";
+            } else if (!arraySymbol.isArray()) {
+                // Variable is not an array
+                String errorMsg = "Error at line " + $ID.line + ": '" + $ID.text + "' is not an array\n";
+                writeIntoParserLogFile(errorMsg);
+                writeIntoErrorFile(errorMsg);
+                Main.syntaxErrorCount++;
+                $var_type = "error";
+            } else {
+                $var_type = arraySymbol.getDataType();
+            }
+            
+            if (!$ex.exp_type.equals("int")) {
+                String errorMsg = "Error at line " + $RTHIRD.line + ": Expression inside third brackets not an integer\n";
+                writeIntoParserLogFile(errorMsg);
+                writeIntoErrorFile(errorMsg);
+                Main.syntaxErrorCount++;
+            }
+        } else {
+            $var_type = "unknown";
+        }
+
         writeIntoParserLogFile(
             $var + "\n"
         );
@@ -612,10 +764,11 @@ variable
     ;
 
 expression
-    returns [String exp_line]
+    returns [String exp_line, String exp_type]
     : le=logic_expression
       { 
         $exp_line = $le.logi_line;
+        $exp_type = $le.logi_type;
         writeIntoParserLogFile(
             "Line " + $le.stop.getLine()+ ": expression : logic_expression\n"
         );
@@ -626,9 +779,14 @@ expression
     | v=variable ASSIGNOP le=logic_expression
       {
         $exp_line = $v.var+"="+$le.logi_line;
+        $exp_type = "int";
+
         writeIntoParserLogFile(
             "Line " + $le.stop.getLine()+ ": expression : variable ASSIGNOP logic_expression\n"
         );
+
+        checkAssignmentCompatibility($v.var_type, $le.logi_type, $le.stop.getLine(), $v.var, $le.logi_line);
+
         writeIntoParserLogFile(
             $exp_line + "\n"
         );
@@ -636,10 +794,11 @@ expression
     ;
 
 logic_expression
-    returns [String logi_line]
+    returns [String logi_line, String logi_type]
     : re=rel_expression
       {
         $logi_line = $re.re_line;
+        $logi_type = $re.re_type;
         writeIntoParserLogFile(
             "Line " + $re.stop.getLine()+ ": logic_expression : rel_expression\n"
         );
@@ -650,6 +809,7 @@ logic_expression
     | re1=rel_expression LOGICOP re2=rel_expression
       {
         $logi_line = $re1.re_line + $LOGICOP.text + $re2.re_line;
+        $logi_type = "int"; // Logical operations always return int (boolean)
         writeIntoParserLogFile(
             "Line " + $re2.stop.getLine()+ ": logic_expression : rel_expression LOGICOP rel_expression\n"
         );
@@ -660,10 +820,11 @@ logic_expression
     ;
 
 rel_expression
-    returns [String re_line]
+    returns [String re_line, String re_type]
     : se=simple_expression
       {
         $re_line = $se.se_line;
+        $re_type = $se.se_type;
         writeIntoParserLogFile(
             "Line " + $se.stop.getLine()+ ": rel_expression : simple_expression\n"
         );
@@ -674,6 +835,7 @@ rel_expression
     | se1=simple_expression RELOP se2=simple_expression
       {
         $re_line = $se1.se_line + $RELOP.text + $se2.se_line;
+        $re_type = "int"; // Relational operations return int (boolean)
         writeIntoParserLogFile(
             "Line " + $se2.stop.getLine()+ ": rel_expression : simple_expression RELOP simple_expression\n"
         );
@@ -684,10 +846,11 @@ rel_expression
     ;
 
 simple_expression
-    returns [String se_line]
+    returns [String se_line, String se_type]
     : te=term
       {
         $se_line = $te.term_line;
+        $se_type = $te.term_type;
         writeIntoParserLogFile(
             "Line " + $te.stop.getLine()+ ": simple_expression : term\n"
         );
@@ -698,6 +861,7 @@ simple_expression
     | se=simple_expression ADDOP te=term
       { 
         $se_line = $se.se_line + $ADDOP.text + $te.term_line;
+        $se_type = determineArithmeticType($se.se_type,$te.term_type);
         writeIntoParserLogFile(
             "Line " + $te.stop.getLine()+ ": simple_expression : simple_expression ADDOP term\n"
         );
@@ -708,10 +872,11 @@ simple_expression
     ;
 
 term
-    returns [String term_line]
+    returns [String term_line, String term_type]
     : ue=unary_expression
       {
         $term_line = $ue.un_ex_line;
+        $term_type = $ue.un_ex_type;
         writeIntoParserLogFile(
             "Line " + $ue.stop.getLine()+ ": term : unary_expression\n"
         );
@@ -722,9 +887,19 @@ term
     | t=term MULOP ue=unary_expression
       {
         $term_line = $t.term_line + $MULOP.text + $ue.un_ex_line;
+        $term_type = determineArithmeticType($t.term_type, $ue.un_ex_type);
         writeIntoParserLogFile(
             "Line " + $ue.stop.getLine()+ ": term : term MULOP unary_expression\n"
         );
+
+        if($MULOP.text.equals("%") && $term_type.equals("float")){
+            String errorMsg = "Error at line " + $ue.stop.getLine() +": Non-Integer operand on modulus operator\n";
+            writeIntoParserLogFile(errorMsg);
+            writeIntoErrorFile(errorMsg);
+            Main.syntaxErrorCount++;
+            $term_type = "int";
+        }
+
         writeIntoParserLogFile(
             $term_line + "\n"
         );
@@ -732,10 +907,11 @@ term
     ;
 
 unary_expression
-    returns [String un_ex_line]
+    returns [String un_ex_line, String un_ex_type]
     : ADDOP un=unary_expression
       {
         $un_ex_line = $ADDOP.text + $un.un_ex_line;
+        $un_ex_type = $un.un_ex_type;
         writeIntoParserLogFile(
             "Line " + $un.stop.getLine()+ ": unary_expression : ADDOP unary_expression\n"
         );
@@ -746,6 +922,7 @@ unary_expression
     | NOT un=unary_expression
       {
         $un_ex_line = $NOT.text + $un.un_ex_line;
+        $un_ex_type = $un.un_ex_type;
         writeIntoParserLogFile(
             "Line " + $un.stop.getLine()+ ": unary_expression : NOT unary_expression\n"
         );
@@ -756,6 +933,7 @@ unary_expression
     | f=factor
       { 
         $un_ex_line = $f.ft_line;
+        $un_ex_type = $f.ft_type;
         writeIntoParserLogFile(
             "Line " + $f.stop.getLine()+ ": unary_expression : factor\n"
         );
@@ -766,10 +944,11 @@ unary_expression
     ;
 
 factor
-    returns [String ft_line]
+    returns [String ft_line, String ft_type]
     : v=variable
       { 
         $ft_line = $v.var;
+        $ft_type = $v.var_type;
         writeIntoParserLogFile(
             "Line " + $v.stop.getLine()+ ": factor : variable\n"
         );
@@ -780,6 +959,7 @@ factor
     | ID LPAREN argl=argument_list RPAREN
       {
         $ft_line = $ID.text +"("+ $argl.arg_list +")";
+        $ft_type = getFunctionReturnType($ID.text, $ID.line);
         writeIntoParserLogFile(
             "Line " + $RPAREN.getLine()+ ": factor : ID LPAREN argument_list RPAREN\n"
         );
@@ -790,6 +970,7 @@ factor
     | LPAREN ex=expression RPAREN
       {
         $ft_line = "(" + $ex.exp_line + ")" ;
+        $ft_type = $ex.exp_type;
         writeIntoParserLogFile(
             "Line " + $RPAREN.getLine()+ ": factor : LPAREN expression RPAREN\n"
         );
@@ -800,6 +981,7 @@ factor
     | ci=CONST_INT
       {
         $ft_line = $ci.text;
+        $ft_type = "int";
         writeIntoParserLogFile(
             "Line " + $ci.getLine() + ": factor : CONST_INT\n"
         );
@@ -810,6 +992,7 @@ factor
     | cf=CONST_FLOAT
       {
         $ft_line = $cf.text;
+        $ft_type = "float";
         writeIntoParserLogFile(
             "Line " + $cf.getLine() + ": factor : CONST_FLOAT\n"
         );

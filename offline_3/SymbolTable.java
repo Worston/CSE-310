@@ -110,11 +110,10 @@ public class SymbolTable {
         if (insert(symbol)) {
             return true;
         } else {
-            outputStream.println("Error at line " + lineNumber + ": Multiple declaration of " + symbol.getName());
-            outputStream.println();
+            String errorMsg = "Error at line " + lineNumber + ": Multiple declaration of " + symbol.getName()+"\n";
+            outputStream.println(errorMsg);
             outputStream.flush();
-            errorStream.println("Error at line " + lineNumber + ": Multiple declaration of " + symbol.getName());
-            errorStream.println();
+            errorStream.println(errorMsg);
             errorStream.flush();
             return false;
         }
