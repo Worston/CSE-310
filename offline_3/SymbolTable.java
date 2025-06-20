@@ -105,6 +105,20 @@ public class SymbolTable {
     public List<SymbolInfo> getPendingParameters() {
         return new ArrayList<>(pendingParameters);
     }
+
+    public boolean insertWithErrorReporting(SymbolInfo symbol, int lineNumber) {
+        if (insert(symbol)) {
+            return true;
+        } else {
+            outputStream.println("Error at line " + lineNumber + ": Multiple declaration of " + symbol.getName());
+            outputStream.println();
+            outputStream.flush();
+            errorStream.println("Error at line " + lineNumber + ": Multiple declaration of " + symbol.getName());
+            errorStream.println();
+            errorStream.flush();
+            return false;
+        }
+    }
     
     // Convenience method to insert function symbols
     public boolean insertFunction(String name, String returnType, List<SymbolInfo> parameters) {
@@ -129,8 +143,15 @@ public class SymbolTable {
         return insert(symbol);
     }
 
-    public boolean insertArray(String name, String dataType) {
-        return insertArray(name, dataType, -1); // -1 indicates unspecified size
+    //overloaded to test
+    public boolean insertArray(String name, String dataType, int arraySize, int lineNumber) {
+        SymbolInfo symbol = new SymbolInfo(name, "ID");
+        symbol.setDataType(dataType);
+        symbol.setArray(true);
+        if (arraySize > 0) {
+            symbol.setArraySize(arraySize);
+        }
+        return insertWithErrorReporting(symbol, lineNumber);
     }
     
     // Convenience method to insert variable symbols
@@ -138,6 +159,13 @@ public class SymbolTable {
         SymbolInfo variable = new SymbolInfo(name, "ID");
         variable.setDataType(dataType);
         return insert(variable);
+    }
+
+    //overloaded to test
+    public boolean insertVariable(String name, String dataType, int lineNumber) {
+        SymbolInfo symbol = new SymbolInfo(name, "ID");
+        symbol.setDataType(dataType);
+        return insertWithErrorReporting(symbol, lineNumber);
     }
     
     // Method to check if a variable is declared before use

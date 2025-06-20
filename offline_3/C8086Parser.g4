@@ -11,7 +11,8 @@ import java.io.IOException;
 
 @members {
     private SymbolTable symbolTable;
-    
+    private String currentVarType;
+
     public void setSymbolTable(SymbolTable st) {
         this.symbolTable = st;
     }
@@ -35,40 +36,6 @@ import java.io.IOException;
             Main.errorFile.flush();
         } catch (IOException e) {
             System.err.println("Error file write error: " + e.getMessage());
-        }
-    }
-
-    void insertVariablesFromDeclarationList(String type, String declarationList) {
-        if (symbolTable == null) return;
-        
-        String[] vars = declarationList.split(",");
-        for (String var : vars) {
-            var = var.trim();
-            if (var.contains("[") && var.contains("]")) {
-                String[] parts = var.split("\\[");
-                String arrayName = parts[0].trim();
-                String sizePart = parts[1].replace("]", "").trim();
-                
-                int arraySize = sizePart.isEmpty() ? -1 : parseArraySize(sizePart);
-                symbolTable.insertArray(arrayName, type, arraySize);
-            } else {
-                symbolTable.insertVariable(var, type);
-            }
-        }
-    }
-
-    private int parseArraySize(String sizeStr) {
-        if (sizeStr.isEmpty()) {
-            return -1; // Unspecified size
-        }
-        
-        try {
-            return Integer.parseInt(sizeStr);
-        } catch (NumberFormatException e) {
-            // Size is a variable/expression like 'n' or 'MAX_SIZE'
-            // For semantic analysis, we might want to look it up
-            // For now, return -1 to indicate dynamic/unknown size
-            return -1;
         }
     }
 }
@@ -328,7 +295,11 @@ compound_statement
 
 var_declaration
     returns [String vardec_list]
-    : t=type_specifier dl=declaration_list sm=SEMICOLON
+    : t=type_specifier
+      {
+        currentVarType = $t.name_line;
+      }
+      dl=declaration_list sm=SEMICOLON
       {
         $vardec_list = $t.name_line +" "+ $dl.name_list + ";";
         writeIntoParserLogFile(
@@ -338,7 +309,7 @@ var_declaration
             $vardec_list + "\n"
         );
 
-        insertVariablesFromDeclarationList($t.name_line, $dl.name_list);
+        currentVarType = null;
       }
     | t=type_specifier de=declaration_list_err sm=SEMICOLON
       {
@@ -399,6 +370,13 @@ declaration_list
     returns [String name_list]
     : dl=declaration_list COMMA ID
       {
+        if(symbolTable != null && currentVarType != null) {
+            boolean success = symbolTable.insertVariable($ID.text, currentVarType, $ID.line);
+            if (!success) {
+                Main.syntaxErrorCount++;
+            }
+        }
+
         $name_list = $dl.name_list + $COMMA.text + $ID.text;
         writeIntoParserLogFile(
             "Line " + $ID.line +": declaration_list : declaration_list COMMA ID\n"
@@ -410,6 +388,14 @@ declaration_list
       }
     | dl=declaration_list COMMA ID LTHIRD CONST_INT RTHIRD
       {
+        if (symbolTable != null && currentVarType != null) {
+            int arraySize = Integer.parseInt($CONST_INT.text);
+            boolean success = symbolTable.insertArray($ID.text, currentVarType, arraySize, $ID.line);
+            if (!success) {
+                Main.syntaxErrorCount++;
+            }
+        }
+
         $name_list = $dl.name_list + $COMMA.text + $ID.text + "[" + $CONST_INT.text + "]";
         writeIntoParserLogFile(
             "Line " + $RTHIRD.line +": declaration_list : declaration_list COMMA ID LTHIRD CONST_INT RTHIRD\n"
@@ -421,6 +407,13 @@ declaration_list
       }
     | ID
       {
+        if (symbolTable != null && currentVarType != null) {
+            boolean success = symbolTable.insertVariable($ID.text, currentVarType, $ID.line);
+            if (!success) {
+                Main.syntaxErrorCount++;
+            }
+        }
+
         $name_list = $ID.text;
         writeIntoParserLogFile(
             "Line " + $ID.line +": declaration_list : ID\n"
@@ -432,6 +425,14 @@ declaration_list
       }
     | ID LTHIRD CONST_INT RTHIRD
       {
+        if (symbolTable != null && currentVarType != null) {
+            int arraySize = Integer.parseInt($CONST_INT.text);
+            boolean success = symbolTable.insertArray($ID.text, currentVarType, arraySize, $ID.line);
+            if (!success) {
+                Main.syntaxErrorCount++;
+            }
+        }
+
         $name_list = $ID.text + "[" + $CONST_INT.text + "]";
         writeIntoParserLogFile(
             "Line " + $ID.line +": declaration_list : ID LTHIRD CONST_INT RTHIRD\n"
