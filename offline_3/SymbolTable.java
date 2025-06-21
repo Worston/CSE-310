@@ -87,7 +87,17 @@ public class SymbolTable {
         return currentScope;
     }
 
-    public void addPendingParameter(SymbolInfo param) {
+    public void addPendingParameter(SymbolInfo param, int lineNumber) {
+        for (SymbolInfo params : pendingParameters) {
+            if (params.getName().equals(param.getName())) {
+                String errorMsg =  "Error at line " + lineNumber + ": Multiple declaration of " + param.getName() + " in parameter\n";
+                outputStream.println(errorMsg);
+                outputStream.flush();
+                errorStream.println(errorMsg);
+                errorStream.flush();
+                return;
+            }
+        }
         pendingParameters.add(param);
     }
 
@@ -118,16 +128,46 @@ public class SymbolTable {
             return false;
         }
     }
-    
-    // Convenience method to insert function symbols
-    public boolean insertFunction(String name, String returnType, List<SymbolInfo> parameters) {
+
+    public boolean insertFunction(String name, String returnType, List<SymbolInfo> parameters, int lineNumber) {
         SymbolInfo function = new SymbolInfo(name, returnType, parameters, false);
+        SymbolInfo ifContainsFunc = lookup(name);
+
+        if (ifContainsFunc != null) {
+            if (ifContainsFunc.isFunction() && !ifContainsFunc.isDefined()) {
+                //checking if return type matches
+                if (!ifContainsFunc.getDataType().equals(returnType)) {
+                    String errorMsg = "Error at line " + lineNumber + ": Return type mismatch of " + name + "\n" ;
+                    outputStream.println(errorMsg);
+                    outputStream.flush();
+                    errorStream.println(errorMsg);
+                    errorStream.flush();
+                    return false;
+                }
+                //checking if parameter count matches
+                if (!ifContainsFunc.isParamsMatching(parameters)) {
+                    String errorMsg = "Error at line " + lineNumber + ": Total number of arguments mismatch with declaration in function " + name + "\n" ;
+                    outputStream.println(errorMsg);
+                    outputStream.flush();
+                    errorStream.println(errorMsg);
+                    errorStream.flush();
+                    return false;
+                }
+            } else {
+                String errorMsg = "Error at line " + lineNumber + ": Multiple declaration of " + name + "\n" ;
+                outputStream.println(errorMsg);
+                outputStream.flush();
+                errorStream.println(errorMsg);
+                errorStream.flush();
+                return false;
+            }
+        }
+
         return insert(function);
     }
-    
-    // Convenience method to insert function symbols with definition status
-    public boolean insertFunction(String name, String returnType, List<SymbolInfo> parameters, boolean isDefined) {
-        SymbolInfo function = new SymbolInfo(name, returnType, parameters, isDefined);
+
+    public boolean insertFunction(String name, String returnType, List<SymbolInfo> parameters) {
+        SymbolInfo function = new SymbolInfo(name, returnType, parameters, false);
         return insert(function);
     }
     

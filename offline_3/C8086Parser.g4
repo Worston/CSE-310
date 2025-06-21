@@ -261,7 +261,7 @@ func_definition
         // will need signature and other checking
         if (symbolTable != null) {
           List<SymbolInfo> params = symbolTable.getPendingParameters();
-          symbolTable.insertFunction($ID.text, $t.name_line, params);
+          symbolTable.insertFunction($ID.text, $t.name_line, params, $RPAREN.getLine());
         }
       } 
       cs=compound_statement
@@ -283,7 +283,7 @@ func_definition
       {
         // will need signature and other checking
         if (symbolTable != null) {
-            symbolTable.insertFunction($ID.text,$t.name_line,null);
+            symbolTable.insertFunction($ID.text,$t.name_line,null, $RPAREN.getLine());
         }
       } 
       cs=compound_statement
@@ -307,6 +307,12 @@ parameter_list
     returns [String name_list]
     : pl=parameter_list COMMA t=type_specifier ID
       {
+        if (symbolTable != null) {
+            SymbolInfo param = new SymbolInfo($ID.text, "ID");
+            param.setDataType($t.name_line);
+            symbolTable.addPendingParameter(param, $ID.getLine()); 
+        }
+
         $name_list = $pl.name_list + $COMMA.text + $t.name_line + " " + $ID.text;
         writeIntoParserLogFile(
             "Line " + $ID.getLine() + ": parameter_list : parameter_list COMMA type_specifier ID\n"
@@ -314,16 +320,16 @@ parameter_list
         writeIntoParserLogFile(
             $name_list+"\n"
         );
-
-        if (symbolTable != null) {
-            SymbolInfo param = new SymbolInfo($ID.text, "ID");
-            param.setDataType($t.name_line);
-            symbolTable.addPendingParameter(param); 
-        }
       }  
     | parameter_list COMMA type_specifier
     | t=type_specifier ID
       {
+        if (symbolTable != null) {
+            SymbolInfo param = new SymbolInfo($ID.text, "ID");
+            param.setDataType($t.name_line);
+            symbolTable.addPendingParameter(param, $ID.getLine()); 
+        }
+
         $name_list = $t.name_line + " " + $ID.text;
         writeIntoParserLogFile(
             "Line " + $ID.getLine() + ": parameter_list : type_specifier ID\n"
@@ -331,12 +337,6 @@ parameter_list
         writeIntoParserLogFile(
             $name_list + "\n"
         );
-
-        if (symbolTable != null) {
-            SymbolInfo param = new SymbolInfo($ID.text, "ID");
-            param.setDataType($t.name_line);
-            symbolTable.addPendingParameter(param); 
-        }
       }  
     | type_specifier
     ;

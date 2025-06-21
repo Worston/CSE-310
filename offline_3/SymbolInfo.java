@@ -110,6 +110,12 @@ public class SymbolInfo {
         }
         return true;
     }
+
+    public boolean isParamsMatching(List<SymbolInfo> argList) {
+        if (parameters == null && (argList == null || argList.isEmpty())) return true;
+        if (parameters == null || argList == null) return false;
+        return parameters.size() == argList.size();
+    }
     
     // Check if this function declaration matches another (for declaration vs definition checking)
     public boolean matchesFunctionSignature(SymbolInfo other) {
