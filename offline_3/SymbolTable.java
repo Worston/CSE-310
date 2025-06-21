@@ -95,7 +95,7 @@ public class SymbolTable {
                 outputStream.flush();
                 errorStream.println(errorMsg);
                 errorStream.flush();
-                return;
+                Main.syntaxErrorCount++;  
             }
         }
         pendingParameters.add(param);
@@ -142,7 +142,7 @@ public class SymbolTable {
                     outputStream.flush();
                     errorStream.println(errorMsg);
                     errorStream.flush();
-                    return false;
+                    Main.syntaxErrorCount++;
                 }
                 //checking if parameter count matches
                 if (!ifContainsFunc.isParamsMatching(parameters)) {
@@ -151,7 +151,7 @@ public class SymbolTable {
                     outputStream.flush();
                     errorStream.println(errorMsg);
                     errorStream.flush();
-                    return false;
+                    Main.syntaxErrorCount++;
                 }
             } else {
                 String errorMsg = "Error at line " + lineNumber + ": Multiple declaration of " + name + "\n" ;
@@ -159,7 +159,7 @@ public class SymbolTable {
                 outputStream.flush();
                 errorStream.println(errorMsg);
                 errorStream.flush();
-                return false;
+                Main.syntaxErrorCount++;
             }
         }
 
@@ -169,17 +169,6 @@ public class SymbolTable {
     public boolean insertFunction(String name, String returnType, List<SymbolInfo> parameters) {
         SymbolInfo function = new SymbolInfo(name, returnType, parameters, false);
         return insert(function);
-    }
-    
-    // Convenience method to insert array symbols
-    public boolean insertArray(String name, String dataType, int arraySize) {
-        SymbolInfo symbol = new SymbolInfo(name, "ID");
-        symbol.setDataType(dataType);
-        symbol.setArray(true);
-        if (arraySize > 0) {
-            symbol.setArraySize(arraySize);
-        }
-        return insert(symbol);
     }
 
     //overloaded to test
