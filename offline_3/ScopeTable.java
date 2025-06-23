@@ -1,6 +1,4 @@
 import java.io.PrintWriter;
-import java.util.List;
-import java.util.ArrayList;
 
 public class ScopeTable {
     private SymbolInfo[] buckets;
@@ -121,30 +119,5 @@ public class ScopeTable {
             }
             outputStream.println("");
         }
-    }
-    
-    // Method to get all symbols in this scope (for debugging/analysis)
-    public List<SymbolInfo> getAllSymbols() {
-        List<SymbolInfo> symbols = new ArrayList<>();
-        for (int i = 0; i < numBuckets; i++) {
-            SymbolInfo current = buckets[i];
-            while (current != null) {
-                symbols.add(current);
-                current = current.getNext();
-            }
-        }
-        return symbols;
-    }
-    
-    public int getSymbolCount() {
-        int count = 0;
-        for (int i = 0; i < numBuckets; i++) {
-            SymbolInfo current = buckets[i];
-            while (current != null) {
-                count++;
-                current = current.getNext();
-            }
-        }
-        return count;
     }
 }

@@ -214,17 +214,4 @@ public class SymbolTable {
     public boolean existsInCurrentScope(String name) {
         return lookupCurrentScope(name) != null;
     }
-    
-    // Method for error reporting - get symbol with scope information
-    public String getSymbolLocation(String name) {
-        ScopeTable curr = currentScope;
-        while (curr != null) {
-            SymbolInfo found = curr.lookup(name);
-            if (found != null) {
-                return "Found in scope " + curr.getId();
-            }
-            curr = curr.getParent();
-        }
-        return "Not found";
-    }
 }
