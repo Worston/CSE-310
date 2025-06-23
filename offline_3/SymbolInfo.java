@@ -5,8 +5,6 @@ public class SymbolInfo {
     private String name;
     private String type;            
     private SymbolInfo next;        
-    
-    
     private String dataType;       
     private boolean isArray;
     private int arraySize;         
@@ -31,7 +29,6 @@ public class SymbolInfo {
         this.isArray = isArray;
     }
 
-    
     public SymbolInfo(String name, String type, int arraySize) {
         this(name, type);
         this.isArray = true;
@@ -67,98 +64,100 @@ public class SymbolInfo {
     public void setArraySize(int arraySize) { this.arraySize = arraySize; }
     public void setDefined(boolean isDefined) { this.isDefined = isDefined; }
 
-    @Override
-    public String toString() {
-        return "< " + name + " : " + type + " >";
-    }
-
-    // Method to get function signature for semantic checking
-    public String getFunctionSignature() {
-        if (!isFunction) return null;
-
-        StringBuilder sig = new StringBuilder();
-        sig.append(dataType != null ? dataType : type).append("(");
-        if (parameters != null) {
-            for (int i = 0; i < parameters.size(); i++) {
-                SymbolInfo param = parameters.get(i);
-                sig.append(param.getDataType() != null ? param.getDataType() : param.getType());
-                if (param.isArray()) sig.append("[]");
-                if (i < parameters.size() - 1) sig.append(",");
-            }
-        }
-        sig.append(")");
-        return sig.toString();
-    }
-
-    // Method to check parameter compatibility
-    public boolean isParameterCompatible(List<SymbolInfo> argList) {
-        if (!isFunction) return false;
-
-        if (parameters == null && (argList == null || argList.isEmpty())) return true;
-        if (parameters == null || argList == null) return false;
-        if (parameters.size() != argList.size()) return false;
-
-        for (int i = 0; i < parameters.size(); i++) {
-            SymbolInfo param = parameters.get(i);
-            SymbolInfo arg = argList.get(i);
-
-            String paramType = param.getDataType() != null ? param.getDataType() : param.getType();
-            String argType = arg.getDataType() != null ? arg.getDataType() : arg.getType();
-            
-            if (!paramType.equals(argType)) return false;
-            if (param.isArray() != arg.isArray()) return false;
-        }
-        return true;
-    }
 
     public boolean isParamsMatching(List<SymbolInfo> argList) {
         if (parameters == null && (argList == null || argList.isEmpty())) return true;
         if (parameters == null || argList == null) return false;
         return parameters.size() == argList.size();
     }
-    
-    // Check if this function declaration matches another (for declaration vs definition checking)
-    public boolean matchesFunctionSignature(SymbolInfo other) {
-        if (!isFunction || !other.isFunction) return false;
-        
-        //return types
-        String thisReturn = dataType != null ? dataType : type;
-        String otherReturn = other.dataType != null ? other.dataType : other.type;
-        if (!thisReturn.equals(otherReturn)) return false;
-        
-        //parameter count
-        int thisParamCount = parameters != null ? parameters.size() : 0;
-        int otherParamCount = other.parameters != null ? other.parameters.size() : 0;
-        if (thisParamCount != otherParamCount) return false;
-        
-        //parameter types
-        if (parameters != null && other.parameters != null) {
-            for (int i = 0; i < parameters.size(); i++) {
-                SymbolInfo thisParam = parameters.get(i);
-                SymbolInfo otherParam = other.parameters.get(i);
-                
-                String thisParamType = thisParam.getDataType() != null ? 
-                    thisParam.getDataType() : thisParam.getType();
-                String otherParamType = otherParam.getDataType() != null ? 
-                    otherParam.getDataType() : otherParam.getType();
-                
-                if (!thisParamType.equals(otherParamType)) return false;
-                if (thisParam.isArray() != otherParam.isArray()) return false;
-            }
-        }
-        
-        return true;
+
+    @Override
+    public String toString() {
+        return "< " + name + " : " + type + " >";
     }
 
-    //to copy symbol info
-    public SymbolInfo copy() {
-        SymbolInfo copy = new SymbolInfo(this.name, this.type);
-        copy.dataType = this.dataType;
-        copy.isArray = this.isArray;
-        copy.isFunction = this.isFunction;
-        copy.arraySize = this.arraySize;
-        copy.isDefined = this.isDefined;
-        copy.parameters = this.parameters != null ? new ArrayList<>(this.parameters) : null;
-        return copy;
-    }
+    // we'll delete everything underneath
+//     // Method to get function signature for semantic checking
+//     public String getFunctionSignature() {
+//         if (!isFunction) return null;
+
+//         StringBuilder sig = new StringBuilder();
+//         sig.append(dataType != null ? dataType : type).append("(");
+//         if (parameters != null) {
+//             for (int i = 0; i < parameters.size(); i++) {
+//                 SymbolInfo param = parameters.get(i);
+//                 sig.append(param.getDataType() != null ? param.getDataType() : param.getType());
+//                 if (param.isArray()) sig.append("[]");
+//                 if (i < parameters.size() - 1) sig.append(",");
+//             }
+//         }
+//         sig.append(")");
+//         return sig.toString();
+//     }
+
+//     // Method to check parameter compatibility
+//     public boolean isParameterCompatible(List<SymbolInfo> argList) {
+//         if (!isFunction) return false;
+
+//         if (parameters == null && (argList == null || argList.isEmpty())) return true;
+//         if (parameters == null || argList == null) return false;
+//         if (parameters.size() != argList.size()) return false;
+
+//         for (int i = 0; i < parameters.size(); i++) {
+//             SymbolInfo param = parameters.get(i);
+//             SymbolInfo arg = argList.get(i);
+
+//             String paramType = param.getDataType() != null ? param.getDataType() : param.getType();
+//             String argType = arg.getDataType() != null ? arg.getDataType() : arg.getType();
+            
+//             if (!paramType.equals(argType)) return false;
+//             if (param.isArray() != arg.isArray()) return false;
+//         }
+//         return true;
+//     }
+
+//     // Check if this function declaration matches another (for declaration vs definition checking)
+//     public boolean matchesFunctionSignature(SymbolInfo other) {
+//         if (!isFunction || !other.isFunction) return false;
+        
+//         //return types
+//         String thisReturn = dataType != null ? dataType : type;
+//         String otherReturn = other.dataType != null ? other.dataType : other.type;
+//         if (!thisReturn.equals(otherReturn)) return false;
+        
+//         //parameter count
+//         int thisParamCount = parameters != null ? parameters.size() : 0;
+//         int otherParamCount = other.parameters != null ? other.parameters.size() : 0;
+//         if (thisParamCount != otherParamCount) return false;
+        
+//         //parameter types
+//         if (parameters != null && other.parameters != null) {
+//             for (int i = 0; i < parameters.size(); i++) {
+//                 SymbolInfo thisParam = parameters.get(i);
+//                 SymbolInfo otherParam = other.parameters.get(i);
+                
+//                 String thisParamType = thisParam.getDataType() != null ? 
+//                     thisParam.getDataType() : thisParam.getType();
+//                 String otherParamType = otherParam.getDataType() != null ? 
+//                     otherParam.getDataType() : otherParam.getType();
+                
+//                 if (!thisParamType.equals(otherParamType)) return false;
+//                 if (thisParam.isArray() != otherParam.isArray()) return false;
+//             }
+//         }
+        
+//         return true;
+//     }
+
+//     //to copy symbol info
+//     public SymbolInfo copy() {
+//         SymbolInfo copy = new SymbolInfo(this.name, this.type);
+//         copy.dataType = this.dataType;
+//         copy.isArray = this.isArray;
+//         copy.isFunction = this.isFunction;
+//         copy.arraySize = this.arraySize;
+//         copy.isDefined = this.isDefined;
+//         copy.parameters = this.parameters != null ? new ArrayList<>(this.parameters) : null;
+//         return copy;
+//     }
 }

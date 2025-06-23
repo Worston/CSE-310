@@ -46,7 +46,7 @@ import java.util.ArrayList;
             return "error";
         }
         if (type1.equals("void") || type2.equals("void")) {
-            return "error"; 
+            return "error_2"; 
         }
         if (type1.equals("float") || type2.equals("float")) {
             return "float"; 
@@ -63,9 +63,9 @@ import java.util.ArrayList;
         
         SymbolInfo func = symbolTable.lookup(functionName);
         if (func == null) {
-            return "error";
+            return "error_2";
         } else if (!func.isFunction()) {
-            return "error";
+            return "error_2";
         }
         
         return func.getDataType();
@@ -89,7 +89,7 @@ import java.util.ArrayList;
     }
 
     void checkAssignmentCompatibility(String leftType, String rightType, int lineNumber) {
-        if (leftType.equals("error") || rightType.equals("error") || 
+        if (leftType.equals("error") || rightType.equals("error_2") || 
             leftType.equals("unknown") || rightType.equals("unknown")) {
             return;
         }
@@ -191,6 +191,13 @@ import java.util.ArrayList;
             return true; 
         }
         return false;
+    }
+
+    void handleUnrecognizedChar(String character, int lineNumber) {
+        String errorMsg = "Error at line " + lineNumber + ": Unrecognized character " + character + "\n";
+        writeIntoParserLogFile(errorMsg);
+        writeIntoErrorFile(errorMsg);
+        Main.syntaxErrorCount++;
     }
 }
 
@@ -413,8 +420,32 @@ parameter_list
         );
       }  
     | type_specifier
+    | t=type_specifier syntax_error 
+      {
+        $name_list = $t.name_line;
+        writeIntoParserLogFile(
+            "Line " + $t.stop.getLine() + ": parameter_list : type_specifier\n"
+        );
+        writeIntoParserLogFile($name_list + "\n");
+      }
     ;
 
+syntax_error
+    : ADDOP
+      {
+        String errorMsg = "Error at line " + $ADDOP.line + ": syntax error, unexpected ADDOP, expecting RPAREN or COMMA\n";
+        writeIntoParserLogFile(errorMsg);
+        writeIntoErrorFile(errorMsg);
+        Main.syntaxErrorCount++;
+      }
+    | MULOP
+      {
+        String errorMsg = "Error at line " + $MULOP.line + ": syntax error, unexpected MULOP, expecting RPAREN or COMMA\n";
+        writeIntoParserLogFile(errorMsg);
+        writeIntoErrorFile(errorMsg);
+        Main.syntaxErrorCount++;
+      } 
+    ;
 compound_statement
     returns [String cs_stmt_line]
     : LCURL 
@@ -426,7 +457,11 @@ compound_statement
       } 
       st=statements RCURL
       { 
-        $cs_stmt_line = "{\n"+$st.stmt+"\n}";
+        if($st.stmt.equals("error")){
+          $cs_stmt_line = "{\n"+$st.stmt+"}";
+        }else{
+          $cs_stmt_line = "{\n"+$st.stmt+"\n}";
+        }
         writeIntoParserLogFile(
             "Line " + $RCURL.getLine() + ": compound_statement : LCURL statements RCURL\n" 
         );
@@ -553,7 +588,12 @@ declaration_list
             }
         }
 
-        $name_list = $dl.name_list + $COMMA.text + $ID.text;
+        if($dl.name_list.isEmpty()){
+          $name_list =  $ID.text;
+        }else{
+          $name_list = $dl.name_list + $COMMA.text + $ID.text;
+        }
+
         writeIntoParserLogFile(
             "Line " + $ID.line +": declaration_list : declaration_list COMMA ID\n"
         );
@@ -561,6 +601,14 @@ declaration_list
         writeIntoParserLogFile(
             $name_list + "\n"
         );
+      }
+    | dl=declaration_list ADDOP ID
+      {
+        $name_list = $dl.name_list;
+        Main.syntaxErrorCount++;
+        String errorMsg = "Error at line "+ $ID.line +": syntax error, unexpected ADDOP, expecting COMMA or SEMICOLON\n";
+        writeIntoParserLogFile(errorMsg);
+        writeIntoErrorFile(errorMsg);
       }
     | dl=declaration_list COMMA ID LTHIRD CONST_INT RTHIRD
       {
@@ -572,7 +620,12 @@ declaration_list
             }
         }
 
-        $name_list = $dl.name_list + $COMMA.text + $ID.text + "[" + $CONST_INT.text + "]";
+        if($dl.name_list.isEmpty()){
+          $name_list =  $ID.text + "[" + $CONST_INT.text + "]";
+        }else{
+          $name_list = $dl.name_list + $COMMA.text + $ID.text + "[" + $CONST_INT.text + "]";
+        }
+
         writeIntoParserLogFile(
             "Line " + $RTHIRD.line +": declaration_list : declaration_list COMMA ID LTHIRD CONST_INT RTHIRD\n"
         );
@@ -618,6 +671,17 @@ declaration_list
             $name_list + "\n"
         );
       }
+    | dl=declaration_list COMMA uc=UNRECOGNIZED_CHAR 
+      {
+        $name_list = $dl.name_list;
+        handleUnrecognizedChar($uc.text,$uc.line);
+      }
+
+    | uc=UNRECOGNIZED_CHAR 
+      {
+        handleUnrecognizedChar($uc.text,$uc.line);
+        $name_list = "";
+      }  
     ;
 
 statements
@@ -625,22 +689,42 @@ statements
     : st=statement
       { 
         $stmt = $st.line;
-        writeIntoParserLogFile(
-            "Line " + $st.stop.getLine() + ": statements : statement\n"
-        );
-        writeIntoParserLogFile(
-            $stmt + "\n"
-        );
+        if(!$stmt.equals("error")){
+          writeIntoParserLogFile(
+              "Line " + $st.stop.getLine() + ": statements : statement\n"
+          );
+          writeIntoParserLogFile(
+              $stmt + "\n"
+          );
+        } 
       }  
     | sts=statements st=statement
       {
-        $stmt = $sts.stmt +"\n"+ $st.line;
-        writeIntoParserLogFile(
-            "Line " + $st.stop.getLine() + ": statements : statements statement\n"
-        );
-        writeIntoParserLogFile(
-            $stmt + "\n"
-        );
+        if($sts.stmt.equals("error") || $st.line.equals("error")){
+          if($sts.stmt.equals("error") && !$st.line.equals("error")){
+            $stmt = $st.line;
+          }
+          if(!$sts.stmt.equals("error") && $st.line.equals("error")){
+            $stmt = $sts.stmt;
+          }
+          if($sts.stmt.equals("error") && $st.line.equals("error")){
+            $stmt = "error";
+          }
+        } else{
+          if(!$st.line.isEmpty()){
+            $stmt = $sts.stmt +"\n"+ $st.line;
+          } else{
+            $stmt = $sts.stmt;
+          }
+        }
+        if(!$st.line.equals("error") && !$st.line.isEmpty()){
+          writeIntoParserLogFile(
+              "Line " + $st.stop.getLine() + ": statements : statements statement\n"
+          );
+          writeIntoParserLogFile(
+              $stmt + "\n"
+          );
+        }
       }
     ;
 
@@ -659,13 +743,15 @@ statement
     | exp_st=expression_statement
       {
         $line = $exp_st.exp_stmt;
-        writeIntoParserLogFile(
-            "Line " + $exp_st.stop.getLine() + ": statement : expression_statement\n"
-        );
-        writeIntoParserLogFile(
-            $line + "\n"
-        );
-      }
+        if(!$line.isEmpty()){
+          writeIntoParserLogFile(
+              "Line " + $exp_st.stop.getLine() + ": statement : expression_statement\n"
+          );
+          writeIntoParserLogFile(
+              $line + "\n"
+          );
+        } 
+      } 
     | cs=compound_statement
       {
         $line = $cs.cs_stmt_line;
@@ -746,6 +832,11 @@ statement
             $line + "\n"
         );
       }  
+    | uc=UNRECOGNIZED_CHAR
+      {
+        handleUnrecognizedChar($uc.text,$uc.line);
+        $line="error";
+      }  
     ;
 
 expression_statement
@@ -762,13 +853,17 @@ expression_statement
       }
     | ex=expression sm=SEMICOLON
       {
-        $exp_stmt = $ex.exp_line+";";
-        writeIntoParserLogFile(
-          "Line " + $sm.getLine() + ": expression_statement : expression SEMICOLON\n"
-        );
-        writeIntoParserLogFile(
-            $exp_stmt + "\n"
-        );
+        if(!$ex.exp_line.isEmpty() && $ex.exp_line.length() > 1){
+          $exp_stmt = $ex.exp_line+";";
+          writeIntoParserLogFile(
+            "Line " + $sm.getLine() + ": expression_statement : expression SEMICOLON\n"
+          );
+          writeIntoParserLogFile(
+              $exp_stmt + "\n"
+          );
+        } else{
+          $exp_stmt = "";
+        }
       }
     ;
 
@@ -858,27 +953,34 @@ expression
       { 
         $exp_line = $le.logi_line;
         $exp_type = $le.logi_type;
-        writeIntoParserLogFile(
-            "Line " + $le.stop.getLine()+ ": expression : logic_expression\n"
-        );
-        writeIntoParserLogFile(
-            $exp_line + "\n"
-        );
+
+        if(!$exp_type.equals("error")){
+          writeIntoParserLogFile(
+              "Line " + $le.stop.getLine()+ ": expression : logic_expression\n"
+          );
+          writeIntoParserLogFile(
+              $exp_line + "\n"
+          );
+        }
       }
     | v=variable ASSIGNOP le=logic_expression
       {
-        $exp_line = $v.var+"="+$le.logi_line;
-        $exp_type = "int";
+        $exp_type = $le.logi_type.equals("error")? "error":"int";
+        if(!$exp_type.equals("error")){
+          $exp_line = $v.var+"="+$le.logi_line;
+          writeIntoParserLogFile(
+              "Line " + $le.stop.getLine()+ ": expression : variable ASSIGNOP logic_expression\n"
+          );
 
-        writeIntoParserLogFile(
-            "Line " + $le.stop.getLine()+ ": expression : variable ASSIGNOP logic_expression\n"
-        );
+          checkAssignmentCompatibility($v.var_type, $le.logi_type, $le.stop.getLine());
 
-        checkAssignmentCompatibility($v.var_type, $le.logi_type, $le.stop.getLine());
+          writeIntoParserLogFile(
+              $exp_line + "\n"
+          );
+        } else{
+          $exp_line = "";
+        }
 
-        writeIntoParserLogFile(
-            $exp_line + "\n"
-        );
       } 
     ;
 
@@ -888,12 +990,14 @@ logic_expression
       {
         $logi_line = $re.re_line;
         $logi_type = $re.re_type;
-        writeIntoParserLogFile(
-            "Line " + $re.stop.getLine()+ ": logic_expression : rel_expression\n"
-        );
-        writeIntoParserLogFile(
-            $logi_line + "\n"
-        );
+        if(!$logi_type.equals("error")){
+          writeIntoParserLogFile(
+              "Line " + $re.stop.getLine()+ ": logic_expression : rel_expression\n"
+          );
+          writeIntoParserLogFile(
+              $logi_line + "\n"
+          );
+        }
       }
     | re1=rel_expression LOGICOP re2=rel_expression
       {
@@ -914,12 +1018,14 @@ rel_expression
       {
         $re_line = $se.se_line;
         $re_type = $se.se_type;
-        writeIntoParserLogFile(
-            "Line " + $se.stop.getLine()+ ": rel_expression : simple_expression\n"
-        );
-        writeIntoParserLogFile(
-            $re_line + "\n"
-        );
+        if(!$re_type.equals("error")){
+          writeIntoParserLogFile(
+              "Line " + $se.stop.getLine()+ ": rel_expression : simple_expression\n"
+          );
+          writeIntoParserLogFile(
+              $re_line + "\n"
+          );
+        }
       }
     | se1=simple_expression RELOP se2=simple_expression
       {
@@ -950,6 +1056,7 @@ simple_expression
     | se=simple_expression ADDOP te=term
       { 
         $se_line = $se.se_line + $ADDOP.text + $te.term_line;
+        checkVoidInExpression($se.se_type, $te.term_type, $ADDOP.line);
         $se_type = determineArithmeticType($se.se_type,$te.term_type);
         writeIntoParserLogFile(
             "Line " + $te.stop.getLine()+ ": simple_expression : simple_expression ADDOP term\n"
@@ -958,8 +1065,41 @@ simple_expression
             $se_line + "\n"
         );
       }  
+    | se=simple_expression ADDOP ef=error_after_add
+      {
+        $se_line ="";
+        $se_type = "error";                  //might change this one
+        String errorMsg = "Error at line " + $ef.line + ": syntax error, unexpected " + 
+                         $ef.token_name + "\n";
+        writeIntoParserLogFile(errorMsg);
+        writeIntoErrorFile(errorMsg);
+        Main.syntaxErrorCount++;
+      }  
     ;
 
+error_after_add
+    returns [int line, String token_name]
+    : ASSIGNOP
+      {
+        $line = $ASSIGNOP.line;
+        $token_name = "ASSIGNOP";
+      }
+    | SEMICOLON
+      {
+        $line = $SEMICOLON.line;
+        $token_name = "SEMICOLON";
+      }
+    | RPAREN
+      {
+        $line = $RPAREN.line;
+        $token_name = "RPAREN";
+      }
+    | COMMA
+      {
+        $line = $COMMA.line;
+        $token_name = "COMMA";
+      }
+    ;  
 term
     returns [String term_line, String term_type]
     : ue=unary_expression
@@ -1129,6 +1269,12 @@ factor
             $ft_line + "\n"
         );
       }
+    | uc=UNRECOGNIZED_CHAR
+      {
+        handleUnrecognizedChar($uc.text,$uc.line);
+        $ft_line="";
+        $ft_type="error";                       //might change here
+      }  
     ;
 
 argument_list

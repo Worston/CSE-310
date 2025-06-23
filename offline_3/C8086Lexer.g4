@@ -93,3 +93,8 @@ CONST_FLOAT
         writeIntoLexLogFile("Line# " + getLine() + ": Token <CONST_FLOAT> Lexeme " + getText());
     }
     ;
+
+//Unrecognized characters
+UNRECOGNIZED_CHAR : . {
+    writeIntoLexLogFile("Unrecognized character '" + getText() + "' at line " + getLine());
+};
