@@ -1,7 +1,7 @@
-parser grammar C8086Parser;
+parser grammar C2105015Parser;
 
 options {
-    tokenVocab = C8086Lexer;
+    tokenVocab = C2105015Lexer;
 }
 
 @header {
@@ -57,7 +57,6 @@ import java.util.ArrayList;
         return "unknown";
     }
     
-    // Get function return type
     String getFunctionReturnType(String functionName, int lineNumber) {
         if (symbolTable == null) return "unknown";
         
@@ -71,13 +70,11 @@ import java.util.ArrayList;
         return func.getDataType();
     }
     
-    // Check if a variable is declared
     boolean isVariableDeclared(String varName) {
         if (symbolTable == null) return false;
         return symbolTable.isDeclared(varName);
     }
     
-    // Get variable type safely
     String getVariableType(String varName) {
         if (symbolTable == null) return "unknown";
         
@@ -96,26 +93,20 @@ import java.util.ArrayList;
         
         if (leftType.equals("void") || rightType.equals("void")) {
             String errorMsg = "Error at line " + lineNumber + ": Void function used in expression\n";
-            writeIntoParserLogFile(errorMsg);
-            writeIntoErrorFile(errorMsg);
-            Main.syntaxErrorCount++;
+            writeErrorLog(errorMsg);
             return;
         }
 
         if (!isAssignmentCompatible(leftType, rightType)) {
             String errorMsg = "Error at line " + lineNumber + ": Type Mismatch\n";
-            writeIntoParserLogFile(errorMsg);
-            writeIntoErrorFile(errorMsg);
-            Main.syntaxErrorCount++;
+            writeErrorLog(errorMsg);
         }
     }
 
     void checkVoidInExpression(String type1, String type2, int lineNumber) {
         if (type1.equals("void") || type2.equals("void")) {
             String errorMsg = "Error at line " + lineNumber + ": Void function used in expression\n";
-            writeIntoParserLogFile(errorMsg);
-            writeIntoErrorFile(errorMsg);
-            Main.syntaxErrorCount++;
+            writeErrorLog(errorMsg);
             return;
         }
     }
@@ -126,17 +117,13 @@ import java.util.ArrayList;
         SymbolInfo func = symbolTable.lookup(funcName);
         if (func == null) {
             String errorMsg = "Error at line " + lineNumber + ": Undefined function " + funcName + "\n";
-            writeIntoParserLogFile(errorMsg);
-            writeIntoErrorFile(errorMsg);
-            Main.syntaxErrorCount++;
+            writeErrorLog(errorMsg);
             return;
         }
 
         if (!func.isFunction()) {
             String errorMsg = "Error at line " + lineNumber + ": " + funcName + "' is not a function\n";
-            writeIntoParserLogFile(errorMsg);
-            writeIntoErrorFile(errorMsg);
-            Main.syntaxErrorCount++;
+            writeErrorLog(errorMsg);
             return;
         }
 
@@ -146,9 +133,7 @@ import java.util.ArrayList;
         
         if (expectedCount != actualCount) {
             String errorMsg = "Error at line " + lineNumber + ": Total number of arguments mismatch with declaration in function " + funcName + "\n";
-            writeIntoParserLogFile(errorMsg);
-            writeIntoErrorFile(errorMsg);
-            Main.syntaxErrorCount++;
+            writeErrorLog(errorMsg);
             return;
         }
 
@@ -164,9 +149,7 @@ import java.util.ArrayList;
                 
                 if (!isArgumentCompatible(expectedType, actualType)) {
                     String errorMsg = "Error at line " + lineNumber + ": " + (i + 1) + "th argument mismatch in function " + funcName + "\n";
-                    writeIntoParserLogFile(errorMsg);
-                    writeIntoErrorFile(errorMsg);
-                    Main.syntaxErrorCount++;
+                    writeErrorLog(errorMsg);
                     return; 
                 }
             }
@@ -195,6 +178,10 @@ import java.util.ArrayList;
 
     void handleUnrecognizedChar(String character, int lineNumber) {
         String errorMsg = "Error at line " + lineNumber + ": Unrecognized character " + character + "\n";
+        writeErrorLog(errorMsg);
+    }
+
+    void writeErrorLog(String errorMsg){
         writeIntoParserLogFile(errorMsg);
         writeIntoErrorFile(errorMsg);
         Main.syntaxErrorCount++;
@@ -335,9 +322,7 @@ func_definition
         {
           if($t.name_line.equals("void") && $cs.cs_stmt_line.contains("return")) {
             String errorMsg = "Error at line " +$cs.stop.getLine()+ ": Cannot return value from function "+ $ID.text+ " with void return type \n";
-            writeIntoParserLogFile(errorMsg);
-            writeIntoErrorFile(errorMsg);
-            Main.syntaxErrorCount++;
+            writeErrorLog(errorMsg);
           }
 
           $func_def_name=$t.name_line +" "+ $ID.text +"("+ $pl.name_list + ")" + $cs.cs_stmt_line;
@@ -364,9 +349,7 @@ func_definition
       {
         if($t.name_line.equals("void") && $cs.cs_stmt_line.contains("return")) {
             String errorMsg = "Error at line " +$cs.stop.getLine()+ ": Cannot return value from function "+ $ID.text+ " with void return type \n";
-            writeIntoParserLogFile(errorMsg);
-            writeIntoErrorFile(errorMsg);
-            Main.syntaxErrorCount++;
+            writeErrorLog(errorMsg);
         }
 
         $func_def_name=$t.name_line +" "+ $ID.text +"()" + $cs.cs_stmt_line;
@@ -434,16 +417,12 @@ syntax_error
     : ADDOP
       {
         String errorMsg = "Error at line " + $ADDOP.line + ": syntax error, unexpected ADDOP, expecting RPAREN or COMMA\n";
-        writeIntoParserLogFile(errorMsg);
-        writeIntoErrorFile(errorMsg);
-        Main.syntaxErrorCount++;
+        writeErrorLog(errorMsg);
       }
     | MULOP
       {
         String errorMsg = "Error at line " + $MULOP.line + ": syntax error, unexpected MULOP, expecting RPAREN or COMMA\n";
-        writeIntoParserLogFile(errorMsg);
-        writeIntoErrorFile(errorMsg);
-        Main.syntaxErrorCount++;
+        writeErrorLog(errorMsg);
       } 
     ;
 compound_statement
@@ -511,9 +490,7 @@ var_declaration
 
         if($t.name_line.equals("void")){
             String errorMsg = "Error at line " +$sm.getLine()+ ": Variable type cannot be void\n";
-            writeIntoParserLogFile(errorMsg);
-            writeIntoErrorFile(errorMsg);
-            Main.syntaxErrorCount++;
+            writeErrorLog(errorMsg);
         }
 
         writeIntoParserLogFile(
@@ -605,10 +582,8 @@ declaration_list
     | dl=declaration_list ADDOP ID
       {
         $name_list = $dl.name_list;
-        Main.syntaxErrorCount++;
         String errorMsg = "Error at line "+ $ID.line +": syntax error, unexpected ADDOP, expecting COMMA or SEMICOLON\n";
-        writeIntoParserLogFile(errorMsg);
-        writeIntoErrorFile(errorMsg);
+        writeErrorLog(errorMsg);
       }
     | dl=declaration_list COMMA ID LTHIRD CONST_INT RTHIRD
       {
@@ -812,9 +787,7 @@ statement
         boolean find = symbolTable.isDeclared($ID.text);
         if(!find){
           String errorMsg = "Error at line " + $ID.line + ": Undeclared variable " + $ID.text + "\n";
-          writeIntoParserLogFile(errorMsg);
-          writeIntoErrorFile(errorMsg);
-          Main.syntaxErrorCount++;
+          writeErrorLog(errorMsg);
         }
 
         writeIntoParserLogFile(
@@ -883,9 +856,7 @@ variable
             if (symbol == null) {
                 // Variable not declared
                 String errorMsg = "Error at line " + $ID.line + ": Undeclared variable " + $ID.text + "\n";
-                writeIntoParserLogFile(errorMsg);
-                writeIntoErrorFile(errorMsg);
-                Main.syntaxErrorCount++;
+                writeErrorLog(errorMsg);
                 $var_type = "error";
             } else {
                 $var_type = symbol.getDataType();
@@ -896,9 +867,7 @@ variable
 
         if(symbol != null && symbol.isArray()){
             String errorMsg = "Error at line " + $ID.line + ": Type mismatch, " + $ID.text + " is an array\n"; 
-            writeIntoParserLogFile(errorMsg);
-            writeIntoErrorFile(errorMsg);
-            Main.syntaxErrorCount++; 
+            writeErrorLog(errorMsg);
         }
 
         writeIntoParserLogFile(
@@ -917,15 +886,11 @@ variable
             SymbolInfo arraySymbol = symbolTable.lookup($ID.text);
             if (arraySymbol == null) {
                 String errorMsg = "Error at line " + $ID.line + ": Undeclared variable '" + $ID.text + "'";
-                writeIntoParserLogFile(errorMsg);
-                writeIntoErrorFile(errorMsg);
-                Main.syntaxErrorCount++;
+                writeErrorLog(errorMsg);
                 $var_type = "error";
             } else if (!arraySymbol.isArray()) {
                 String errorMsg = "Error at line " + $ID.line + ": " + $ID.text + " not an array\n";
-                writeIntoParserLogFile(errorMsg);
-                writeIntoErrorFile(errorMsg);
-                Main.syntaxErrorCount++;
+                writeErrorLog(errorMsg);
                 $var_type = "error";
             } else {
                 $var_type = arraySymbol.getDataType();
@@ -933,9 +898,7 @@ variable
             
             if (!$ex.exp_type.equals("int")) {
                 String errorMsg = "Error at line " + $RTHIRD.line + ": Expression inside third brackets not an integer\n";
-                writeIntoParserLogFile(errorMsg);
-                writeIntoErrorFile(errorMsg);
-                Main.syntaxErrorCount++;
+                writeErrorLog(errorMsg);
             }
         } else {
             $var_type = "unknown";
@@ -1053,6 +1016,20 @@ simple_expression
             $se_line + "\n"
         );
       }
+      //might delete
+    | te=term uc=UNRECOGNIZED_CHAR  
+      {
+        handleUnrecognizedChar($uc.text,$uc.line);
+        $se_line = $te.term_line;
+        $se_type = $te.term_type;
+        writeIntoParserLogFile(
+            "Line " + $uc.getLine()+ ": simple_expression : term\n"
+        );
+        writeIntoParserLogFile(
+            $se_line + "\n"
+        );
+      }  
+
     | se=simple_expression ADDOP te=term
       { 
         $se_line = $se.se_line + $ADDOP.text + $te.term_line;
@@ -1071,9 +1048,7 @@ simple_expression
         $se_type = "error";                  //might change this one
         String errorMsg = "Error at line " + $ef.line + ": syntax error, unexpected " + 
                          $ef.token_name + "\n";
-        writeIntoParserLogFile(errorMsg);
-        writeIntoErrorFile(errorMsg);
-        Main.syntaxErrorCount++;
+        writeErrorLog(errorMsg);
       }  
     ;
 
@@ -1126,16 +1101,12 @@ term
         if($MULOP.text.equals("%")){
             if($term_type.equals("float")) {
               String errorMsg = "Error at line " + $ue.stop.getLine() +": Non-Integer operand on modulus operator\n";
-              writeIntoParserLogFile(errorMsg);
-              writeIntoErrorFile(errorMsg);
-              Main.syntaxErrorCount++;
+              writeErrorLog(errorMsg);
               $term_type = "int";
             }
             else if($ue.un_ex_line.equals("0")) {
               String errorMsg = "Error at line " + $ue.stop.getLine() +": Modulus by Zero\n";
-              writeIntoParserLogFile(errorMsg);
-              writeIntoErrorFile(errorMsg);
-              Main.syntaxErrorCount++;
+              writeErrorLog(errorMsg);
               $term_type = "int";
             }
         }
@@ -1144,7 +1115,39 @@ term
             $term_line + "\n"
         );
       }
+    | t=term MULOP em=error_after_mul
+      {
+        $t.term_line = "";
+        $t.term_type = "error";
+        String errorMsg = "Error at line " + $em.line + ": syntax error, unexpected " + 
+                         $em.token_name + "\n";
+        writeErrorLog(errorMsg);
+      }
     ;
+
+error_after_mul
+    returns [int line, String token_name]   
+    : ASSIGNOP
+      {
+        $line = $ASSIGNOP.line;
+        $token_name = "ASSIGNOP";
+      }
+    | ADDOP
+      {
+        $line = $ADDOP.line;
+        $token_name = "ADDOP";
+      }
+    | SEMICOLON
+      {
+        $line = $SEMICOLON.line;
+        $token_name = "SEMICOLON";
+      }
+    | RPAREN
+      {
+        $line = $RPAREN.line;
+        $token_name = "RPAREN";
+      }
+    ;   
 
 unary_expression
     returns [String un_ex_line, String un_ex_type]
@@ -1326,3 +1329,4 @@ arguments
         );
       }
     ;
+  

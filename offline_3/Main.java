@@ -39,9 +39,11 @@ public class Main {
 
         // Create lexer and parser
         CharStream input = CharStreams.fromFileName(args[0]);
-        C8086Lexer lexer = new C8086Lexer(input);
+        // C8086Lexer lexer = new C8086Lexer(input);
+        C2105015Lexer lexer = new C2105015Lexer(input);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
-        C8086Parser parser = new C8086Parser(tokens);
+        //C8086Parser parser = new C8086Parser(tokens);
+        C2105015Parser parser = new C2105015Parser(tokens);
 
         // Remove default error listener
         parser.removeErrorListeners();
