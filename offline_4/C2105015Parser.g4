@@ -25,6 +25,10 @@ import java.util.Stack;
     private String currentVarType = null;
     private boolean isFunctionScope = false;
     private int functionStackSize = 0;
+    private int parameterOffset;
+    private int argumentCount = 0;
+    private List<SymbolInfo> currentFunctionParameters = new ArrayList<>();
+    private String currentFunctionName = "";
 
     public void setSymbolTable(SymbolTable st) {
         this.st = st;
@@ -152,6 +156,18 @@ import java.util.Stack;
             isFunctionStarted = true;
         }
     }
+
+    private void adjustParameterOffsets() {
+        int paramCount = currentFunctionParameters.size();
+        for (int i = 0; i < paramCount; i++) {
+            SymbolInfo param = currentFunctionParameters.get(i);
+            int newOffset = 4 + (2 * (paramCount - 1 - i));
+            param.setOffset(newOffset);
+        }
+        
+        // Clear the list for next function
+        currentFunctionParameters.clear();
+    }
 }
 
 
@@ -161,7 +177,7 @@ start
         writeCode(".MODEL SMALL");
         writeCode(".STACK 100H");
         writeCode(".DATA");
-        writeCode("number DB \"00000$\"");
+        writeCode("\tnumber DB \"00000$\"");
     } program {
         appendTempFileToMain();
         writeIntoParserLogFile("start : program");
@@ -218,71 +234,95 @@ func_declaration
     ;
 
 func_definition 
-    : t=type_specifier ID LPAREN parameter_list RPAREN
-      { 
+    : t=type_specifier ID LPAREN
+      {
+        parameterOffset = 4;
+        currentFunctionParameters.clear();  // ← Added this line
+
         String funcName = $ID.text;
+        //currentFunctionName = funcName;    //added to test return
         String returnType = $t.text;
         SymbolInfo funcSymbol = new SymbolInfo(funcName, "ID");
         funcSymbol.setDataType(returnType);
         funcSymbol.setFunction(true);
-       
         st.insert(funcSymbol);
+
+        //added for scoping
+        st.enterScope();
+
         startCodeSegmentIfNeeded();
         isFunctionScope = true;
         
         if (funcName.equals("main")) {
             writeMainHeader();
         } else{
-            //writeTempCode(funcName + " PROC");
-            String codeBlock = funcName + " PROC\n" + "PUSH BP\n" + "MOV BP, SP";
+            String codeBlock = funcName + " PROC\n" + "\tPUSH BP\n" + "\tMOV BP, SP";
             writeTempCodeBlock(codeBlock);
         }
+      } 
+      parameter_list RPAREN
+      { 
+        // startCodeSegmentIfNeeded();
+        // isFunctionScope = true;
+        
+        // if (funcName.equals("main")) {
+        //     writeMainHeader();
+        // } else{
+        //     String codeBlock = funcName + " PROC\n" + "\tPUSH BP\n" + "\tMOV BP, SP";
+        //     writeTempCodeBlock(codeBlock);
+        // }
+        adjustParameterOffsets();  // ← Added this line
       } 
       compound_statement
       {
         writeIntoParserLogFile("func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statement");
-        //String funcName = $ID.text;
+
         if (funcName.equals("main")) {
             writeMainEnder();
         } else {
-            String codeBlock = "ADD SP, " + functionStackSize + "\n" + "POP BP\n" +"RET\n" + funcName + " ENDP";
+            String codeBlock = "\tADD SP, " + functionStackSize + "\n" + "\tPOP BP\n" +"\tRET\n" +funcName + " ENDP";
             writeTempCodeBlock(codeBlock);
-            // writeTempCode("RET");
-            // writeTempCode(funcName + " ENDP");
         }
+
+        //added for scoping
+        st.exitScope();
       }
     | t=type_specifier ID LPAREN RPAREN 
       {
+        currentFunctionParameters.clear();  // ← Added this line
+
         String funcName = $ID.text;
         String returnType = $t.text;
+
         SymbolInfo funcSymbol = new SymbolInfo(funcName, "ID");
         funcSymbol.setDataType(returnType);
         funcSymbol.setFunction(true);
-
         st.insert(funcSymbol);
+
+        //added for scoping
+        st.enterScope();
+
         startCodeSegmentIfNeeded();
         isFunctionScope = true;
 
         if (funcName.equals("main")) {
             writeMainHeader();
         } else{
-            //writeTempCode(funcName + " PROC");
-            String codeBlock = funcName + " PROC\n" + "PUSH BP\n" + "MOV BP, SP";
+            String codeBlock = funcName + " PROC\n" + "\tPUSH BP\n" + "\tMOV BP, SP";
             writeTempCodeBlock(codeBlock);
         }
       } 
       compound_statement
       {
         writeIntoParserLogFile("func_definition : type_specifier ID LPAREN RPAREN compound_statement");
-        //String funcName = $ID.text;
         if (funcName.equals("main")) {
             writeMainEnder();
         } else {
-            String codeBlock = "ADD SP, " + functionStackSize + "\n" + "POP BP\n" +"RET\n" + funcName + " ENDP";
+            String codeBlock = "\tADD SP, " + functionStackSize + "\n" + "\tPOP BP\n" +"\tRET\n" + funcName + " ENDP";
             writeTempCodeBlock(codeBlock);
-            // writeTempCode("RET");
-            // writeTempCode(funcName + " ENDP");
         }
+        //added for scoping
+        st.exitScope();
       }   
     ;
 
@@ -290,6 +330,13 @@ parameter_list
     : parameter_list COMMA type_specifier ID
       {
         writeIntoParserLogFile("parameter_list : parameter_list COMMA type_specifier ID");
+        SymbolInfo param = new SymbolInfo($ID.text, "ID");
+        param.setDataType($type_specifier.text);
+        param.setOffset(parameterOffset);
+        param.setIsParameter(true);
+        parameterOffset += 2;
+        currentFunctionParameters.add(param); //sdded
+        st.insert(param);
       }
     | parameter_list COMMA type_specifier
       {
@@ -298,6 +345,13 @@ parameter_list
     | type_specifier ID
       {
         writeIntoParserLogFile("parameter_list : type_specifier ID");
+        SymbolInfo param = new SymbolInfo($ID.text, "ID");
+        param.setDataType($type_specifier.text);
+        param.setOffset(parameterOffset);
+        param.setIsParameter(true);
+        parameterOffset += 2; 
+        currentFunctionParameters.add(param); //added
+        st.insert(param);
       }
     | type_specifier
       {
@@ -307,24 +361,36 @@ parameter_list
 
 compound_statement 
     : LCURL {
-        st.enterScope();
+        //st.enterScope();
+        if (!isFunctionScope) {
+            st.enterScope();
+        }
         if (isFunctionScope) {
             resetStackOffset();
             isFunctionScope = false;
         }
       } statements RCURL {
         writeIntoParserLogFile("compound_statement : LCURL statements RCURL");
-        st.exitScope();
+        //st.exitScope();
+        if (!isFunctionScope) {
+            st.exitScope();
+        }
       }
     | LCURL {
-        st.enterScope();
+        //st.enterScope();
+        if (!isFunctionScope) {
+            st.enterScope();
+        }
         if (isFunctionScope) {
             resetStackOffset();
             isFunctionScope = false;
         }
       } RCURL {
         writeIntoParserLogFile("compound_statement : LCURL RCURL");
-        st.exitScope();
+        //st.exitScope();
+        if (!isFunctionScope) {
+            st.exitScope();
+        }
       }
     ;
 
@@ -362,7 +428,7 @@ declaration_list
         symbol.setDataType(currentVarType);
     
         if (isGlobalScope()) {
-            writeCode($ID.text + " DW 1 DUP (0000H)");
+            writeCode("\t"+$ID.text + " DW 1 DUP (0000H)");
         } else {
             int offset = getNextStackOffset();
             symbol.setOffset(offset);
@@ -403,7 +469,7 @@ declaration_list
         symbol.setDataType(currentVarType);
         
         if (isGlobalScope()) {
-            writeCode($ID.text + " DW 1 DUP (0000H)");
+            writeCode("\t"+$ID.text + " DW 1 DUP (0000H)");
         } else {
             int offset = getNextStackOffset();
             symbol.setOffset(offset);
@@ -463,24 +529,30 @@ statement
       }
     | FOR LPAREN expression_statement 
       {
-        String loopStart = newLabel();
-        String loopEnd = newLabel();
-        writeTempCode(loopStart + ":");
+        String conditionLabel = newLabel();
+        String incrementLabel = newLabel();
+        String bodyLabel = newLabel();
+        String endLabel = newLabel();
+
+        writeTempCode(conditionLabel + ":");
       } 
       expression_statement 
       {
         writeTempCode("\tCMP AX, 0");
-        writeTempCode("\tJE " + loopEnd);
+        writeTempCode("\tJE " + endLabel);
+        writeTempCode("\tJMP " + bodyLabel);
+        writeTempCode(incrementLabel + ":");
       } 
       expression RPAREN 
       {
-        String currentIncrement = newLabel();
-      } statement
+        writeTempCode("\tJMP " + conditionLabel);
+        writeTempCode(bodyLabel + ":");
+      } 
+      statement
       {
         writeIntoParserLogFile("statement : FOR LPAREN expression_statement expression_statement expression RPAREN statement");
-        writeTempCode(currentIncrement + ":");
-        writeTempCode("\tJMP " + loopStart);
-        writeTempCode(loopEnd + ":");
+        writeTempCode("\tJMP " + incrementLabel);
+        writeTempCode(endLabel + ":");
       }
     | IF LPAREN 
       { 
@@ -521,9 +593,21 @@ statement
         writeIntoParserLogFile("statement : IF LPAREN expression RPAREN statement ELSE statement");
         writeTempCode(nextLabel + ":");
       }
-    | WHILE LPAREN expression RPAREN statement
+    | WHILE LPAREN 
+      {
+        String conditionLabel = newLabel();
+        String endLabel = newLabel();
+        writeTempCode(conditionLabel + ":");
+      } expression RPAREN
+      {
+        writeTempCode("\tCMP AX, 0");
+        writeTempCode("\tJE " + endLabel);
+      }
+      statement
       {
         writeIntoParserLogFile("statement : WHILE LPAREN expression RPAREN statement");
+        writeTempCode("\tJMP " + conditionLabel);
+        writeTempCode(endLabel + ":");
       }
     | PRINTLN LPAREN ID RPAREN SEMICOLON
       {
@@ -551,6 +635,8 @@ statement
         writeIntoParserLogFile("statement : RETURN expression SEMICOLON");
         String label = newLabel();
         writeTempCode(label + ":");
+
+        //return e maybe jhamela. ektu change korte hobe. Checking 25 mile kina
       }
     ;
 
@@ -569,16 +655,6 @@ variable
     : ID
       {
         writeIntoParserLogFile("variable : ID");
-        //bad dilam
-        // String varName = $ID.text;
-        // SymbolInfo symbol = st.lookup(varName);
-        // if (symbol != null) {
-        //     if (isGlobalScope() || symbol.getOffset() == 0) {
-        //         writeTempCode("\tMOV AX, " + varName);
-        //     } else {
-        //         writeTempCode("\tMOV AX, [BP-" + symbol.getOffset() + "]");
-        //     }
-        // }
       }
     | ID LTHIRD expression RTHIRD
       {
@@ -619,7 +695,12 @@ expression
             if (isGlobalScope() || symbol.getOffset() == 0) {
                 writeTempCode("\tMOV " + varName + ", AX       ; Line " + lineNumber);
             } else {
-                writeTempCode("\tMOV [BP-" + symbol.getOffset() + "], AX       ; Line " + lineNumber);
+                //writeTempCode("\tMOV [BP-" + symbol.getOffset() + "], AX       ; Line " + lineNumber);
+                if (symbol.isParameter()) {
+                    writeTempCode("\tMOV [BP+" + symbol.getOffset() + "], AX");
+                } else {
+                    writeTempCode("\tMOV [BP-" + symbol.getOffset() + "], AX");
+                }
             }
             writeTempCode("\tPUSH AX");
             writeTempCode("\tPOP AX");
@@ -743,6 +824,7 @@ simple_expression
         String op = $ADDOP.text;
         int lineNumber = $ADDOP.getLine();
         
+        //System.out.println("ADDOP: " + op + " at line " + lineNumber);
         writeTempCode("\tMOV DX, AX");
         writeTempCode("\tPOP AX");
         
@@ -768,6 +850,8 @@ term
         writeIntoParserLogFile("term : term MULOP unary_expression");
         String op = $MULOP.text;
         int lineNumber = $MULOP.getLine();
+
+        //System.out.println("MULOP: " + op + " at line " + lineNumber);
 
         String codeBlock = "\tMOV CX, AX\n"+
                            "\tPOP AX\n";
@@ -823,19 +907,33 @@ factor
         writeIntoParserLogFile("factor : variable");
         String varName = $variable.text;
         SymbolInfo symbol = st.lookup(varName);
+        
         if (symbol != null) {
             if (isGlobalScope() || symbol.getOffset() == 0) {
+                //GLOBAL Variable
                 writeTempCode("\tMOV AX, " + varName);
             } else {
-                writeTempCode("\tMOV AX, [BP-" + symbol.getOffset() + "]");
+                //writeTempCode("\tMOV AX, [BP-" + symbol.getOffset() + "]");
+                //LOCAL variable or parameter
+                if (symbol.isParameter()) { 
+                    writeTempCode("\tMOV AX, [BP+" + symbol.getOffset() + "]");
+                } else { 
+                    writeTempCode("\tMOV AX, [BP-" + symbol.getOffset() + "]");
+                }
             }
         }
       }
-    | ID LPAREN argument_list RPAREN
+    | ID LPAREN{
+
+      } argument_list RPAREN
       {
         writeIntoParserLogFile("factor : ID LPAREN argument_list RPAREN");
         String funcName = $ID.text;
         writeTempCode("\tCALL " + funcName);
+        
+        if (argumentCount > 0) {
+            writeTempCode("\tADD SP, " + (argumentCount * 2));
+        }
       }
     | LPAREN expression RPAREN
       {
@@ -856,11 +954,6 @@ factor
         writeIntoParserLogFile("factor : variable INCOP");
         int lineNumber = $INCOP.getLine();
 
-        // variable already loaded value into AX (niche namaye disi)
-        // writeTempCode("\tPUSH AX");  // Save current value
-        // writeTempCode("\tINC AX");   
-        
-        // Store back to variable
         String varName = $variable.text;
         SymbolInfo symbol = st.lookup(varName);
         if (symbol != null) {
@@ -871,11 +964,9 @@ factor
             }
         }
 
-        //ekhane
         writeTempCode("\tPUSH AX");  
         writeTempCode("\tINC AX");
 
-        //abar dilam
         if (symbol != null) {
             if (isGlobalScope() || symbol.getOffset() == 0) {
                 writeTempCode("\tMOV " + varName + ", AX");
@@ -890,25 +981,22 @@ factor
       {
         writeIntoParserLogFile("factor : variable DECOP");
         int lineNumber = $DECOP.getLine();
-
-        //add korsi
         String varName = $variable.text;
         SymbolInfo symbol = st.lookup(varName);
+
         if (symbol != null) {
             if (isGlobalScope() || symbol.getOffset() == 0) {
-                writeTempCode("\tMOV " + varName + ", AX");
+                //writeTempCode("\tMOV " + varName + ", AX");
+                writeTempCode("\tMOV AX, " + varName + "       ; Line " + lineNumber);
             } else {
-                writeTempCode("\tMOV [BP-" + symbol.getOffset() + "], AX");
+                //writeTempCode("\tMOV [BP-" + symbol.getOffset() + "], AX");
+                writeTempCode("\tMOV AX, [BP-" + symbol.getOffset() + "]       ; Line " + lineNumber);
             }
-        }//eituku
+        }
         
-        // variable already loaded value into AX
         writeTempCode("\tPUSH AX");  // Save current value
         writeTempCode("\tDEC AX");   // Decrement
         
-        // Store back to variable
-        // String varName = $variable.text;
-        // SymbolInfo symbol = st.lookup(varName); //shoraye dilam
         if (symbol != null) {
             if (isGlobalScope() || symbol.getOffset() == 0) {
                 writeTempCode("\tMOV " + varName + ", AX");
@@ -916,7 +1004,6 @@ factor
                 writeTempCode("\tMOV [BP-" + symbol.getOffset() + "], AX");
             }
         }
-        
         writeTempCode("\tPOP AX");   // Restore original value for expression
       }
     ;
@@ -936,9 +1023,13 @@ arguments
     : arguments COMMA logic_expression
       {
         writeIntoParserLogFile("arguments : arguments COMMA logic_expression");
+        writeTempCode("\tPUSH AX");
+        argumentCount++;
       }
     | logic_expression
       {
         writeIntoParserLogFile("arguments : logic_expression");
+        writeTempCode("\tPUSH AX");
+        argumentCount = 1;
       }
     ;
