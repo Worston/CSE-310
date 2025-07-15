@@ -16,3 +16,6 @@ offline_*/output
 offline_*/.antlr
 offline_*/antlr_venv
 offline_*/sampleio_abs
+offline_*/output_codes
+offline_*/*.PDF
+offline_*/*.out

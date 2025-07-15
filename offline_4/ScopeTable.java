@@ -7,7 +7,6 @@ public class ScopeTable {
     private String id;
     private int childCount;
     private static PrintWriter outputStream = null;
-    private static PrintWriter errorStream = null;
     private HashFunction hashFunction;
 
     public ScopeTable(int numBuckets, ScopeTable parent) {
@@ -30,10 +29,6 @@ public class ScopeTable {
     public static void setOutputStream(PrintWriter os) {
         outputStream = os;
     }
-    
-    public static void setErrorStream(PrintWriter es) {
-        errorStream = es;
-    }
 
     public String getId() { return id; }
     public ScopeTable getParent() { return parentScope; }
@@ -50,11 +45,6 @@ public class ScopeTable {
 
         while (current != null) {
             if (current.getName().equals(name)) {
-                // if (outputStream != null) {
-                //     outputStream.printf(
-                //         "\t'%s' already exists in the current scope%n", name
-                //     );
-                // }
                 return false;
             }
             prev = current;
@@ -115,7 +105,6 @@ public class ScopeTable {
             while (current != null) {
                 outputStream.print(current.toString());
                 current = current.getNext();
-                //if (current != null) outputStream.print(" ");
             }
             outputStream.println("");
         }
