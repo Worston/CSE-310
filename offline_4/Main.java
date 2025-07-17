@@ -57,7 +57,9 @@ public class Main {
 
         // Begin parsing
         ParseTree tree = parser.start();
-
+        PeepholeOptimizer.performOptimization("code.asm", "optimized_code.asm");
+        System.out.println("Optimization completed. Check optimized_code.asm");
+        
         // Close files
         parserLogFile.close();
         codeFile.close();

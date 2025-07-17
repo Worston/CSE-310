@@ -615,7 +615,6 @@ statement
     | RETURN expression SEMICOLON
       {
         writeIntoParserLogFile("statement : RETURN expression SEMICOLON");
-        //return e maybe jhamela. ektu change korte hobe. Checking 25 mile kina
         writeTempCode("\tJMP " + currentFunctionEndLabel);
       }
     ;
@@ -707,7 +706,6 @@ logic_expression
       }
     | rel_expression LOGICOP
       {
-        //writeTempCode("\tPUSH AX");
         String op = $LOGICOP.text;
         String shortCircuitLabel = newLabel();
         String endLabel = newLabel();
@@ -763,7 +761,6 @@ rel_expression
         int lineNumber = $RELOP.getLine();
         
         String trueLabel = newLabel();
-        String falseLabel = newLabel();
         String endLabel = newLabel();
 
         String codeBlock = "\tMOV DX, AX\n" +
@@ -783,13 +780,11 @@ rel_expression
         } else if (op.equals("!=")) {
             codeBlock += "\tJNE " + trueLabel + "\n";
         }   
-        codeBlock += "\tJMP " + falseLabel + "\n" +
-                      trueLabel + ":\n" +
-                      "\tMOV AX, 1       ; Line " + lineNumber +"\n"+
-                      "\tJMP " + endLabel + "\n" +
-                      falseLabel + ":\n" +
-                      "\tMOV AX, 0\n" +
-                      endLabel + ":";
+        codeBlock +=  "\tMOV AX,0    ; Line " + lineNumber +"\n"+
+                      "\tJMP " + endLabel + "\n"+
+                      trueLabel + ":\n"+   
+                      "\tMOV AX, 1       ; Line " + lineNumber +"\n"+  
+                      endLabel + ":";         
         writeTempCode(codeBlock);                 
       }
     ;
@@ -815,7 +810,7 @@ simple_expression
         if (op.equals("+")) {
             writeTempCode("\tADD AX, DX       ; Line " + lineNumber);
         } else if (op.equals("-")) {
-            writeTempCode("\tSUB AX, DX");
+            writeTempCode("\tSUB AX, DX      ; Line " + lineNumber);
         }
       }
     ;
@@ -902,7 +897,7 @@ factor
             }
         }
       }
-    | ID LPAREN{} argument_list RPAREN
+    | ID LPAREN argument_list RPAREN
       {
         writeIntoParserLogFile("factor : ID LPAREN argument_list RPAREN");
         String funcName = $ID.text;
