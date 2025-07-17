@@ -443,6 +443,7 @@ declaration_list
         String str = isGlobalScope()? "Global Scope" : "Local Scope";
         System.out.println(str);
         st.insert(symbol);
+        System.out.println(symbol);
       } 
     | ID
       {
@@ -484,6 +485,7 @@ declaration_list
         st.insert(symbol);
         String str = isGlobalScope()? "Global Scope" : "Local Scope";
         System.out.println(str);
+        System.out.println(symbol);
       } 
     ;
 
@@ -640,17 +642,17 @@ variable
         String varName = $ID.text;
         SymbolInfo symbol = st.lookup(varName);
         if (symbol != null && symbol.isArray()) {
-            writeTempCode("\tMOV BX, AX"); // Index in AX
+            writeTempCode("\tMOV BX, AX"); 
             writeTempCode("\tSHL BX, 1");  
             if (isGlobalScope() || symbol.getOffset() == 0) {
-                // For global arrays, generate LEA + direct addressing
+                // LEA + direct addressing
                 writeTempCode("\tLEA SI, " + varName + "[BX]");
-                writeTempCode("\tMOV AX, [SI]");
+                writeTempCode("\tMOV AX, [SI]");  
             } else {
-                // For local arrays, calculate address manually
+                //local arrays, calculate address manually
                 writeTempCode("\tLEA SI, [BP-" + symbol.getOffset() + "]");
                 writeTempCode("\tADD SI, BX");
-                writeTempCode("\tMOV AX, [SI]");
+                writeTempCode("\tMOV AX, [SI]");  
             }
         }
       }
@@ -666,7 +668,7 @@ expression
         String varName = $variable.text;
         boolean isArrayAccess = varName.contains("[");
         if (isArrayAccess) {
-          // For arrays, SI now contains the address - save it
+          // For arrays, SI now contains the address
           writeTempCode("\tPUSH SI");
         }
       } 
@@ -731,7 +733,7 @@ logic_expression
                                shortCircuitLabel + ":\n"+
                                "\tMOV AX, 1\n"+
                                endLabel +":";     
-            writeTempCode(codeBlock);        //                    
+            writeTempCode(codeBlock);                            
         } else if (op.equals("&&")) {
             String codeBlock = "\tCMP AX,0\n"+
                                "\tJE " + shortCircuitLabel + "\n"+
@@ -740,7 +742,7 @@ logic_expression
                                shortCircuitLabel + ":\n" +
                                "\tMOV AX, 0\n" +
                                endLabel + ":";  
-            writeTempCode(codeBlock);         //            
+            writeTempCode(codeBlock);                    
         }
       }
     ;
@@ -788,7 +790,7 @@ rel_expression
                       falseLabel + ":\n" +
                       "\tMOV AX, 0\n" +
                       endLabel + ":";
-        writeTempCode(codeBlock);       //          
+        writeTempCode(codeBlock);                 
       }
     ;
 
@@ -840,13 +842,13 @@ term
                           "\tMUL CX       ; Line " + lineNumber;
         } else if (op.equals("/")) {
             codeBlock += "\tCWD\n" +
-                          "\tDIV CX\n";
+                          "\tDIV CX       ; Line " + lineNumber;
         } else if (op.equals("%")) {
             codeBlock += "\tCWD\n" +
-                         "\tDIV CX\n" +
+                         "\tDIV CX       ; Line " + lineNumber+"\n" +
                          "\tMOV AX, DX"; 
         }                   
-        writeTempCode(codeBlock);    //
+        writeTempCode(codeBlock);    
       }
     ;
 
@@ -873,7 +875,7 @@ unary_expression
                            falseLabel +":\n"+
                            "\tMOV AX, 1\n" +
                            endLabel+ ":";
-        writeTempCode(codeBlock);     //
+        writeTempCode(codeBlock);     
       }
     | factor
       {
@@ -940,7 +942,7 @@ factor
                                   "\tINC AX\n" +
                                   "\tMOV [SI], AX\n" +
                                   "\tPOP AX";
-                writeTempCode(codeBlock);      //
+                writeTempCode(codeBlock);      
             } else {
                 String address;
                 String codeBlock = "";
@@ -960,7 +962,7 @@ factor
                             "\tINC AX\n" +
                             "\tMOV " + address + ", AX\n" +
                             "\tPOP AX";
-                writeTempCode(codeBlock);   //
+                writeTempCode(codeBlock);   
             }
         }
       }
@@ -980,7 +982,7 @@ factor
                                   "\tDEC AX\n" +
                                   "\tMOV [SI], AX\n" +
                                   "\tPOP AX";
-                writeTempCode(codeBlock);   //
+                writeTempCode(codeBlock);   
             } else {
                 String address;
                 String codeBlock = "";
@@ -1000,7 +1002,7 @@ factor
                             "\tDEC AX\n" +
                             "\tMOV " + address + ", AX\n" +
                             "\tPOP AX";
-                writeTempCode(codeBlock); //
+                writeTempCode(codeBlock); 
             }
         }
       }
