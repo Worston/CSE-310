@@ -651,7 +651,7 @@ variable
                 //local arrays, calculate address manually
                 writeTempCode("\tLEA SI, [BP-" + symbol.getOffset() + "]");
                 writeTempCode("\tADD SI, BX");
-                writeTempCode("\tMOV AX, [SI]");  
+                writeTempCode("\tMOV AX, SS:[SI]");  
             }
         }
       }
@@ -674,7 +674,6 @@ expression
       logic_expression
       {
         writeIntoParserLogFile("expression : variable ASSIGNOP logic_expression");
-        // logic_expression result is in AX
         
         SymbolInfo symbol = st.lookup(varName.split("\\[")[0]);
         int lineNumber = $ASSIGNOP.getLine();
@@ -682,7 +681,13 @@ expression
         if (symbol != null) {
           if (varName.contains("[")) {
               writeTempCode("\tPOP SI");
-              writeTempCode("\tMOV [SI], AX");
+
+              //fixed
+              if (isGlobalScope() || symbol.getOffset() == 0) {
+                  writeTempCode("\tMOV [SI], AX");
+              } else {
+                  writeTempCode("\tMOV SS:[SI], AX");
+              }
           } else {
               if (isGlobalScope() || symbol.getOffset() == 0) {
                 writeTempCode("\tMOV " + varName + ", AX       ; Line " + lineNumber);
@@ -929,31 +934,68 @@ factor
         boolean isArrayAccess = varName.contains("[");
         SymbolInfo symbol = st.lookup(varName.split("\\[")[0]);
 
+        // if (symbol != null) {
+        //     if (isArrayAccess) {
+        //         // For array elements, SI already has the address
+        //         String codeBlock ="\tMOV AX, [SI]\n" +
+        //                           "\tPUSH AX\n" +
+        //                           "\tINC AX\n" +
+        //                           "\tMOV [SI], AX\n" +
+        //                           "\tPOP AX";
+        //         writeTempCode(codeBlock);      
+        //     } else {
+        //         String address;
+        //         String codeBlock = "";
+
+        //         if (isGlobalScope() || symbol.getOffset() == 0) {
+        //             address = varName;
+        //             codeBlock = "\tMOV AX, " + address + "       ; Line " + lineNumber + "\n";
+        //         } else {
+        //             if (symbol.isParameter()) {
+        //                 address = "[BP+" + symbol.getOffset() + "]";
+        //             } else {
+        //                 address = "[BP-" + symbol.getOffset() + "]";
+        //             }
+        //             codeBlock = "\tMOV AX, " + address + "       ; Line " + lineNumber + "\n";
+        //         }
+        //         codeBlock += "\tPUSH AX\n" +
+        //                     "\tINC AX\n" +
+        //                     "\tMOV " + address + ", AX\n" +
+        //                     "\tPOP AX";
+        //         writeTempCode(codeBlock);   
+        //     }
+        // }
+
+        //fixed
         if (symbol != null) {
             if (isArrayAccess) {
-                // For array elements, SI already has the address
-                String codeBlock ="\tMOV AX, [SI]\n" +
-                                  "\tPUSH AX\n" +
-                                  "\tINC AX\n" +
-                                  "\tMOV [SI], AX\n" +
-                                  "\tPOP AX";
-                writeTempCode(codeBlock);      
+                String storeInstruction;
+
+                if (isGlobalScope() || symbol.getOffset() == 0) {
+                    storeInstruction = "\tMOV [SI], AX";
+                } else {
+                    storeInstruction = "\tMOV SS:[SI], AX";
+                }
+                String codeBlock = "\tPUSH AX\n" +      
+                                   "\tINC AX\n" +       
+                                   storeInstruction + "\n" + 
+                                   "\tPOP AX";          
+                writeTempCode(codeBlock);
             } else {
                 String address;
                 String codeBlock = "";
 
                 if (isGlobalScope() || symbol.getOffset() == 0) {
                     address = varName;
-                    codeBlock = "\tMOV AX, " + address + "       ; Line " + lineNumber + "\n";
                 } else {
                     if (symbol.isParameter()) {
                         address = "[BP+" + symbol.getOffset() + "]";
                     } else {
                         address = "[BP-" + symbol.getOffset() + "]";
                     }
-                    codeBlock = "\tMOV AX, " + address + "       ; Line " + lineNumber + "\n";
                 }
-                codeBlock += "\tPUSH AX\n" +
+                codeBlock +="\tMOV AX, " + address + "       ; Line " + lineNumber + "\n" +
+                            "\tPUSH AX\n" +
                             "\tINC AX\n" +
                             "\tMOV " + address + ", AX\n" +
                             "\tPOP AX";
@@ -969,31 +1011,67 @@ factor
         boolean isArrayAccess = varName.contains("[");
         SymbolInfo symbol = st.lookup(varName.split("\\[")[0]);
 
+        // if (symbol != null) {
+        //     if (isArrayAccess) {
+        //         // For array elements, SI already has the address
+        //         String codeBlock ="\tMOV AX, [SI]\n" +
+        //                           "\tPUSH AX\n" +
+        //                           "\tDEC AX\n" +
+        //                           "\tMOV [SI], AX\n" +
+        //                           "\tPOP AX";
+        //         writeTempCode(codeBlock);   
+        //     } else {
+        //         String address;
+        //         String codeBlock = "";
+
+        //         if (isGlobalScope() || symbol.getOffset() == 0) {
+        //             address = varName;
+        //             codeBlock = "\tMOV AX, " + address + "       ; Line " + lineNumber + "\n";
+        //         } else {
+        //             if (symbol.isParameter()) {
+        //                 address = "[BP+" + symbol.getOffset() + "]";
+        //             } else {
+        //                 address = "[BP-" + symbol.getOffset() + "]";
+        //             }
+        //             codeBlock = "\tMOV AX, " + address + "       ; Line " + lineNumber + "\n";
+        //         }
+        //         codeBlock += "\tPUSH AX\n" +
+        //                     "\tDEC AX\n" +
+        //                     "\tMOV " + address + ", AX\n" +
+        //                     "\tPOP AX";
+        //         writeTempCode(codeBlock); 
+        //     }
+        // }
+
+        //fixed
         if (symbol != null) {
             if (isArrayAccess) {
-                // For array elements, SI already has the address
-                String codeBlock = "\tMOV AX, [SI]\n" +
-                                  "\tPUSH AX\n" +
-                                  "\tDEC AX\n" +
-                                  "\tMOV [SI], AX\n" +
-                                  "\tPOP AX";
-                writeTempCode(codeBlock);   
+                String storeInstruction;
+                if (isGlobalScope() || symbol.getOffset() == 0) {
+                    storeInstruction = "\tMOV [SI], AX";
+                } else {
+                    storeInstruction = "\tMOV SS:[SI], AX";
+                }
+                String codeBlock = "\tPUSH AX\n" +
+                                   "\tDEC AX\n" +
+                                   storeInstruction + "\n" +
+                                   "\tPOP AX";
+                writeTempCode(codeBlock);
             } else {
                 String address;
                 String codeBlock = "";
 
                 if (isGlobalScope() || symbol.getOffset() == 0) {
                     address = varName;
-                    codeBlock = "\tMOV AX, " + address + "       ; Line " + lineNumber + "\n";
                 } else {
                     if (symbol.isParameter()) {
                         address = "[BP+" + symbol.getOffset() + "]";
                     } else {
                         address = "[BP-" + symbol.getOffset() + "]";
                     }
-                    codeBlock = "\tMOV AX, " + address + "       ; Line " + lineNumber + "\n";
                 }
-                codeBlock += "\tPUSH AX\n" +
+                codeBlock = "\tMOV AX, " + address + "       ; Line " + lineNumber + "\n" +
+                            "\tPUSH AX\n" +
                             "\tDEC AX\n" +
                             "\tMOV " + address + ", AX\n" +
                             "\tPOP AX";

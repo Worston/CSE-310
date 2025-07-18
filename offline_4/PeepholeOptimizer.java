@@ -41,12 +41,11 @@ public class PeepholeOptimizer {
 
     private List<String> removeRedundantMov(List<String> lines) {
         List<String> optimized = new ArrayList<>();
+        Pattern movPattern = Pattern.compile("^MOV\\s+([^,]+),\\s*([^;]+)");
         for (int i = 0; i < lines.size(); i++) {
             if (i + 1 < lines.size()) {
                 String current = lines.get(i).trim();
                 String next = lines.get(i + 1).trim();
-
-                Pattern movPattern = Pattern.compile("^MOV\\s+([^,]+),\\s*([^;]+)");
                 Matcher m1 = movPattern.matcher(current);
                 Matcher m2 = movPattern.matcher(next);
 
@@ -56,10 +55,10 @@ public class PeepholeOptimizer {
                     String dest2 = m2.group(1).trim();
                     String src2 = m2.group(2).trim();
 
-                    // Check for MOV reg, mem -> MOV mem, reg
+                    // MOV reg, mem -> MOV mem, reg
                     if (dest1.equals(src2) && src1.equals(dest2)) {
-                        optimized.add(lines.get(i)); // Keep the first MOV
-                        i++; // Skip the redundant second MOV
+                        optimized.add(lines.get(i)); //first MOV
+                        i++; // Skip redundant second MOV
                         continue;
                     }
                 }
@@ -69,7 +68,7 @@ public class PeepholeOptimizer {
         return optimized;
     }
 
-    // Correct: PUSH reg -> POP reg
+    // PUSH reg -> POP reg
     private List<String> removeRedundantPushPop(List<String> lines) {
         List<String> optimized = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
@@ -111,7 +110,7 @@ public class PeepholeOptimizer {
         Map<String, String> labelMap = new HashMap<>();
         List<String> pass1 = new ArrayList<>();
 
-        // First pass: find consecutive labels and build the map
+        //First pass: finding consecutive labels and building the map
         for (int i = 0; i < lines.size(); i++) {
             String trimmed = lines.get(i).trim();
             if (trimmed.matches("^L\\d+:$")) {
@@ -124,13 +123,13 @@ public class PeepholeOptimizer {
                     j++;
                 }
                 pass1.add(lines.get(i));
-                i = j - 1; // Skip the redundant labels 
+                i = j - 1; //skipping redundant labels 
             } else {
                 pass1.add(lines.get(i));
             }
         }
 
-        // Second pass: update all jumps using the map
+        // Second pass: updating all jumps using the map
         List<String> pass2 = new ArrayList<>();
         Pattern jumpPattern = Pattern.compile("^(JMP|JE|JNE|JG|JL|JGE|JLE|CALL)\\s+(L\\d+)");
         for (String line : pass1) {
@@ -152,10 +151,10 @@ public class PeepholeOptimizer {
 
     private List<String> optimizeIncDec(List<String> lines) {
         List<String> optimized = new ArrayList<>();
-        Pattern movPattern = Pattern.compile("^MOV\\s+AX,\\s*([^;]+)");
+        Pattern movPattern = Pattern.compile("^MOV\\s+AX,\\s*((SS:)?\\[[^\\]]+\\])");
         Pattern pushPattern = Pattern.compile("^PUSH\\s+AX");
         Pattern incDecPattern = Pattern.compile("^(INC|DEC)\\s+AX");
-        Pattern movBackPattern = Pattern.compile("^MOV\\s+([^,]+),\\s*AX");
+        Pattern movBackPattern = Pattern.compile("^MOV\\s+((SS:)?\\[[^\\]]+\\]),\\s*AX");
         Pattern popPattern = Pattern.compile("^POP\\s+AX");
 
         for (int i = 0; i < lines.size(); i++) {
@@ -173,12 +172,12 @@ public class PeepholeOptimizer {
                     String memOperand2 = m4.group(1).trim();
                     String operation = m3.group(1); // "INC" or "DEC"
 
-                    // Check if the memory location is the same in MOV and MOV back
+                    //if the memory location is the same in MOV and MOV back
                     if (memOperand1.equals(memOperand2)) {
                         optimized.add(lines.get(i)); // Keep the first MOV: MOV AX, [mem]
-                        optimized.add("\t" + operation + " WORD PTR " + memOperand1); // Add INC/DEC [mem]
+                        optimized.add("\t" + operation + " WORD PTR " + memOperand1); //INC/DEC [mem]
 
-                        i += 4; // Skip the next 4 lines which we have now replaced
+                        i += 4; // Skipping next 4 lines 
                         continue;
                     }
                 }
