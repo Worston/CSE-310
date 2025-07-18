@@ -290,7 +290,7 @@ func_definition
             writeMainHeader();
         } else{
             String codeBlock = funcName + " PROC\n" + "\tPUSH BP\n" + "\tMOV BP, SP";
-            writeTempCode(codeBlock); //
+            writeTempCode(codeBlock); 
         }
       } 
       compound_statement
@@ -648,7 +648,7 @@ variable
                 writeTempCode("\tLEA SI, " + varName + "[BX]");
                 writeTempCode("\tMOV AX, [SI]");  
             } else {
-                //local arrays, calculate address manually
+                //local arrays
                 writeTempCode("\tLEA SI, [BP-" + symbol.getOffset() + "]");
                 writeTempCode("\tADD SI, BX");
                 writeTempCode("\tMOV AX, SS:[SI]");  
@@ -934,39 +934,6 @@ factor
         boolean isArrayAccess = varName.contains("[");
         SymbolInfo symbol = st.lookup(varName.split("\\[")[0]);
 
-        // if (symbol != null) {
-        //     if (isArrayAccess) {
-        //         // For array elements, SI already has the address
-        //         String codeBlock ="\tMOV AX, [SI]\n" +
-        //                           "\tPUSH AX\n" +
-        //                           "\tINC AX\n" +
-        //                           "\tMOV [SI], AX\n" +
-        //                           "\tPOP AX";
-        //         writeTempCode(codeBlock);      
-        //     } else {
-        //         String address;
-        //         String codeBlock = "";
-
-        //         if (isGlobalScope() || symbol.getOffset() == 0) {
-        //             address = varName;
-        //             codeBlock = "\tMOV AX, " + address + "       ; Line " + lineNumber + "\n";
-        //         } else {
-        //             if (symbol.isParameter()) {
-        //                 address = "[BP+" + symbol.getOffset() + "]";
-        //             } else {
-        //                 address = "[BP-" + symbol.getOffset() + "]";
-        //             }
-        //             codeBlock = "\tMOV AX, " + address + "       ; Line " + lineNumber + "\n";
-        //         }
-        //         codeBlock += "\tPUSH AX\n" +
-        //                     "\tINC AX\n" +
-        //                     "\tMOV " + address + ", AX\n" +
-        //                     "\tPOP AX";
-        //         writeTempCode(codeBlock);   
-        //     }
-        // }
-
-        //fixed
         if (symbol != null) {
             if (isArrayAccess) {
                 String storeInstruction;
@@ -1011,39 +978,6 @@ factor
         boolean isArrayAccess = varName.contains("[");
         SymbolInfo symbol = st.lookup(varName.split("\\[")[0]);
 
-        // if (symbol != null) {
-        //     if (isArrayAccess) {
-        //         // For array elements, SI already has the address
-        //         String codeBlock ="\tMOV AX, [SI]\n" +
-        //                           "\tPUSH AX\n" +
-        //                           "\tDEC AX\n" +
-        //                           "\tMOV [SI], AX\n" +
-        //                           "\tPOP AX";
-        //         writeTempCode(codeBlock);   
-        //     } else {
-        //         String address;
-        //         String codeBlock = "";
-
-        //         if (isGlobalScope() || symbol.getOffset() == 0) {
-        //             address = varName;
-        //             codeBlock = "\tMOV AX, " + address + "       ; Line " + lineNumber + "\n";
-        //         } else {
-        //             if (symbol.isParameter()) {
-        //                 address = "[BP+" + symbol.getOffset() + "]";
-        //             } else {
-        //                 address = "[BP-" + symbol.getOffset() + "]";
-        //             }
-        //             codeBlock = "\tMOV AX, " + address + "       ; Line " + lineNumber + "\n";
-        //         }
-        //         codeBlock += "\tPUSH AX\n" +
-        //                     "\tDEC AX\n" +
-        //                     "\tMOV " + address + ", AX\n" +
-        //                     "\tPOP AX";
-        //         writeTempCode(codeBlock); 
-        //     }
-        // }
-
-        //fixed
         if (symbol != null) {
             if (isArrayAccess) {
                 String storeInstruction;
